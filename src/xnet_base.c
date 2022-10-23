@@ -192,6 +192,8 @@ int xnet_start(xnet_box *xnet)
                 xnet->connections->connection_count++;
                 xnet->connections->client[0].socket = client_socket;
                 set_non_blocking(client_socket);
+                int yes = 1;
+                setsockopt(client_socket, SOL_SOCKET, SO_KEEPALIVE, &yes, sizeof(yes));
                 
             } else if (ep_events[i].data.fd == monitor_fd) {
                 if (0 == xnet->connections->connection_count) {
@@ -201,21 +203,13 @@ int xnet_start(xnet_box *xnet)
                 /* Check if client connection is still alive. */
                 puts("Checking clients");
                 char time_buffer[2048] = {0};
-                read(ep_events[i].data.fd, time_buffer, sizeof(time_buffer)); // Clear timer buffer
+                int res = read(monitor_fd, time_buffer, sizeof(time_buffer)); // Clear timer buffer so event gets reset.
+                printf("%d\n", res);
                 
-                // struct sockaddr_in peeraddr = {0};
-                // socklen_t peer_len = sizeof(peeraddr);
-                // int alive_res = getsockname(xnet->connections->client[0].socket, &peeraddr, &peer_len);
-                // printf("Client socket's ip : %s\n", (char *)inet_ntoa(peeraddr.sin_addr));
-                // printf("client socket's port %d\n", ntohs(peeraddr.sin_port));
+                const char *keep_alive = "hello";
+                int res2 = write(xnet->connections->client[0].socket, keep_alive, strnlen(keep_alive, 2048));
+                printf("wrote: %d\n", res2);
 
-                const char *keep_alive = "_xnet_keepalive";
-                int alive_res = send(xnet->connections->client[0].socket, keep_alive, sizeof(keep_alive), 0);
-                printf("Sent %d bytes.\n", alive_res);
-                if (-1 == alive_res) {
-                    puts("Client is no longer connected. Closing socket.");
-                    close(xnet->connections->client[0].socket);
-                }
 
             } else {
                 puts("Client sent something.");
