@@ -48,6 +48,12 @@ Create wired protocols for various actions
 10. from_client validates packet and uses the operation_result packet as a way to identify if the message was sent or not.
 ----------------------------------------------
 
+*General Protocols
+1. Server denied connection
+    - Session timeout
+    - Inactive timeout
+    - 
+
 XNet
 -----
 A general-purpose server library that employs an 'addon' approach to add capabilities. XNet currently has 3 addons that support it. Userbase, FTP, and Chat. All of which are interchangable. Each addon has various features that can be toggled on and off that the server can gain access to. For example, the FTP addon allows for various features such as 'get', 'push', 'ls', 'mkdir', etc. Although some servers may want all these features, some may not. XNet has a whitelist-based functionality list. Meaning initially, when informing support of a specific addon, nothing will change, with the exception of the developer now having the ability to add features that are within those addons, to the functionality whitelist. Combine this functionality with all the addons, and you have a ton of diverse mixtures while also remaining cohesive.

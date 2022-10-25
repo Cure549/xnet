@@ -221,8 +221,16 @@ int xnet_start(xnet_box_t *xnet)
                 puts("Client sent something.");
                 printf("Reading file descriptor '%d' -- ", ep_events[i].data.fd);
 
-                char temp_buffer[51];
-                ssize_t bytes_read = read(ep_events[i].data.fd, temp_buffer, sizeof(temp_buffer));
+                struct test {
+                    int opcode;
+                    int length;
+                    char *msg;
+                };
+
+                struct test test1 = {0};
+                ssize_t bytes_read = read(ep_events[i].data.fd, &test1, sizeof(test1));
+                printf("%d\n", test1.opcode);
+                printf("%d\n", test1.length);
 
                 /* EOF Check for client disconnect. */
                 if (0 == bytes_read) {
@@ -236,8 +244,8 @@ int xnet_start(xnet_box_t *xnet)
 
                 printf("%zd bytes read.\n", bytes_read);
                 
-                temp_buffer[bytes_read] = '\0';
-                printf("Read '%s'\n", temp_buffer);
+                // temp_buffer[bytes_read] = '\0';
+                // printf("Read '%s'\n", temp_buffer);
 
                 /* Thread off to do some client work. */
             }
