@@ -26,9 +26,9 @@ extern "C" {
 #include <stdbool.h>
 #include <sys/timerfd.h>
 #include <arpa/inet.h>
+#include <errno.h>
 
 #include "gerr.h"
-#include "xnet_utils.h"
 
 #define XNET_IP_DEFAULT              "127.0.0.1"
 #define XNET_PORT_DEFAULT            40777
@@ -36,7 +36,6 @@ extern "C" {
 #define XNET_PORT_MAX                65535
 
 #define XNET_MAX_CONNECTIONS_DEFAULT 10
-#define XNET_MAX_CONNECTIONS_MAX     100
 
 #define XNET_BACKLOG_MAX             128
 #define XNET_BACKLOG_DEFAULT         128
@@ -45,11 +44,8 @@ extern "C" {
 #define XNET_TIMEOUT_MAX             7200
 
 #define XNET_EPOLL_MAX_EVENTS        10
-#define XNET_MONITOR_TIMEOUT         2000
 
-typedef struct xnet_box xnet_box;
-
-struct xnet_box {
+typedef struct xnet_box {
     struct xnet_general_group *general;
     struct xnet_network_group *network;
     struct xnet_thread_group *thread;
@@ -57,38 +53,39 @@ struct xnet_box {
     struct xnet_addon_userbase *m_userbase;
     struct xnet_addon_chat *m_chat;
     struct xnet_addon_ftp *m_ftp;
-};
+} xnet_box_t ; 
 
-struct xnet_active_connection {
+typedef struct xnet_active_connection {
+    bool active;
     int socket;
     // Userbase entry here...
     size_t session_id;
-};
+} xnet_active_connection_t ;
 
-struct xnet_general_group {
+typedef struct xnet_general_group {
     bool is_running;
     const char *ip;
     size_t port;
     size_t backlog;
     size_t connection_timeout;
     size_t max_connections;
-    void (*on_connect)(struct xnet_active_connection *client_data);
-};
+    void (*on_connect)(xnet_active_connection_t *client_data);
+} xnet_general_group_t ;
 
-struct xnet_network_group {
+typedef struct xnet_network_group {
     int xnet_socket;
     struct addrinfo hints;
     struct addrinfo *result;
-};
+} xnet_network_group_t ;
 
-struct xnet_thread_group {
+typedef struct xnet_thread_group {
     int unused; // TODO: Add thread correlation
-};
+} xnet_thread_group_t ;
 
-struct xnet_connection_group {
+typedef struct xnet_connection_group {
     size_t connection_count;
-    struct xnet_active_connection client[XNET_MAX_CONNECTIONS_DEFAULT];
-};
+    xnet_active_connection_t *clients;
+} xnet_connection_group_t ;
 
 struct xnet_addon_userbase {
     int unused;
@@ -110,28 +107,28 @@ struct xnet_addon_ftp {
  * @param port Positive integer representation of a non-privileged port number.
  * @param backlog Number of clients to place in a pending queue if connections aren't being accepted.
  * @param timeout Duration in seconds in which XNet will sustain a connection.
- * @return xnet_box* NULL on failure. Valid xnet_box pointer on success.
+ * @return xnet_box_t* NULL on failure. Valid xnet_box_t pointer on success.
  */
-xnet_box *xnet_create(const char *ip, size_t port, size_t backlog, size_t timeout);
+xnet_box_t *xnet_create(const char *ip, size_t port, size_t backlog, size_t timeout);
 
-int xnet_start(xnet_box *xnet);
+int xnet_start(xnet_box_t *xnet);
 
 /**
  * @brief Drops any active connections. Closes all sockets related to server.
  * Prevents any further connections.
  * 
- * @param xnet A pointer to a xnet_box.
+ * @param xnet A pointer to a xnet_box_t.
  * @return int Returns 0 on success. Returns 1 or greater on failure.
  */
-int xnet_shutdown(xnet_box *xnet);
+int xnet_shutdown(xnet_box_t *xnet);
 
 /**
- * @brief Releases memory associated with the entirety of a xnet_box.
+ * @brief Releases memory associated with a xnet_box_t.
  * 
- * @param xnet A pointer to a xnet_box.
+ * @param xnet A pointer to a xnet_box_t.
  * @return int Returns 0 on success. Returns 1 or greater on failure.
  */
-int xnet_destroy(xnet_box *xnet);
+int xnet_destroy(xnet_box_t *xnet);
 
 #ifdef __cplusplus
 }

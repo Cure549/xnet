@@ -1,4 +1,8 @@
 #include "xnet_base.h"
+#include "xnet_utils.h"
+
+#include <sys/signalfd.h>
+#include <signal.h>
 
 /* 
 Contains all necessary functions and structs related to a base xnet server
@@ -22,24 +26,24 @@ server
 */
 
 /**
- * @brief Static function that's responsible for allocating all necessary memory in a xnet_box.
+ * @brief Static function that's responsible for allocating all necessary memory in a xnet_box_t.
  * 
- * @return xnet_box* A pointer to a xnet_box.
+ * @return xnet_box_t * A pointer to a xnet_box_t.
  */
-static xnet_box *initialize_xnet_box(void);
+static xnet_box_t *initialize_xnet_box(void);
 
 /**
  * @brief Static function that's responsible for configuriung an XNet server and to assign required
  * values.
  * 
- * @param xnet A pointer to a xnet_box.
+ * @param xnet A pointer to a xnet_box_t.
  * @return int Returns 0 on success. Returns 1 or greater on failure.
  */
-static int xnet_configure(xnet_box *xnet);
+static int xnet_configure(xnet_box_t *xnet);
 
 static int epoll_ctl_add(int epoll_fd, struct epoll_event *an_event, int fd, uint32_t event_list);
 
-xnet_box *xnet_create(const char *ip, size_t port, size_t backlog, size_t timeout)
+xnet_box_t *xnet_create(const char *ip, size_t port, size_t backlog, size_t timeout)
 {
     int err = 0;
 
@@ -78,7 +82,7 @@ xnet_box *xnet_create(const char *ip, size_t port, size_t backlog, size_t timeou
     }
 
     /* Allocate space for the new instance of XNet. */
-    xnet_box *new_xnet = initialize_xnet_box();
+    xnet_box_t *new_xnet = initialize_xnet_box();
     if (NULL == new_xnet) {
         err = E_SRV_FAIL_CREATE;
         goto handle_err;
@@ -107,7 +111,7 @@ handle_err:
     return NULL;
 }
 
-int xnet_start(xnet_box *xnet)
+int xnet_start(xnet_box_t *xnet)
 {
     int err = 0;
     
@@ -124,6 +128,9 @@ int xnet_start(xnet_box *xnet)
         goto handle_err;
     }
 
+    /* Allocate space for connections. */
+    xnet->connections->clients = calloc(xnet->general->max_connections, sizeof(xnet_active_connection_t));
+
     /* XNet start sequence */
     printf("[XNet]\nIP: %s\nPort: %ld\n", xnet->general->ip, xnet->general->port);
     xnet->general->is_running = true;
@@ -138,37 +145,40 @@ int xnet_start(xnet_box *xnet)
     /* Create epoll event for XNet's listening socket. */
     struct epoll_event xnet_event = {0};
     epoll_ctl_add(epoll_fd, &xnet_event, xnet->network->xnet_socket, EPOLLIN);
-
-    /* Create epoll event for XNet's connection handling socket. */
-    struct epoll_event xnet_monitor_event = {0};
-    struct itimerspec monitor_ts = {0};
-    int monitor_fd = timerfd_create(CLOCK_MONOTONIC, 0);
-    monitor_ts.it_interval.tv_sec = XNET_MONITOR_TIMEOUT / 1000;
-    monitor_ts.it_interval.tv_nsec = (XNET_MONITOR_TIMEOUT % 1000) * 1000000;
-    monitor_ts.it_value.tv_sec = XNET_MONITOR_TIMEOUT / 1000;
-    monitor_ts.it_value.tv_nsec = (XNET_MONITOR_TIMEOUT % 1000) * 1000000;
-    if (0 > timerfd_settime(monitor_fd, 0, &monitor_ts, NULL)) {
-        fprintf(stderr, "Connection monitor failed creation.\n");
-        close(monitor_fd);
-    }
-
-    epoll_ctl_add(epoll_fd, &xnet_monitor_event, monitor_fd, EPOLLIN);
-
     set_non_blocking(xnet->network->xnet_socket);
+
+    /*---------------- Do signalfd stuff-------- */
+    sigset_t mask;
+    int sfd;
+    struct signalfd_siginfo fdsi;
+
+    sigemptyset(&mask);
+    sigaddset(&mask, SIGINT);
+    sigaddset(&mask, SIGQUIT);
+
+    /* Block signals so that they aren't handled
+        according to their default dispositions */
+
+    if (sigprocmask(SIG_BLOCK, &mask, NULL) == -1)
+        puts("sigprocmask");
+
+    sfd = signalfd(-1, &mask, 0);
+    if (sfd == -1)
+        puts("signalfd");
+
+    struct epoll_event sfd_event = {0};
+    epoll_ctl_add(epoll_fd, &sfd_event, sfd, EPOLLIN);
+    /*---------------------------------------------*/
 
     /* XNet connection loop */
     while (xnet->general->is_running) {
+
         /* Yield for next event. */
-        /*  Ideally, XNET_MONITOR_TIMOUT should not be -1, as this disrupts connection monitoring. Having the value
-            of -1 set to XNET_MONITOR_TIMOUT tells epoll_wait to yield indefinitely, which does not allow the monitor event
-            to be triggered.
-        */
-        int event_count = epoll_wait(epoll_fd, ep_events, XNET_EPOLL_MAX_EVENTS, XNET_MONITOR_TIMEOUT);
+        int event_count = epoll_wait(epoll_fd, ep_events, XNET_EPOLL_MAX_EVENTS, -1);
     
         for (int i = 0; i < event_count; i++) {
             /* If event triggers on listening socket, a connection is being attempted. */
             if (xnet->network->xnet_socket == ep_events[i].data.fd) {
-
                 /* Don't accept connections, if client count is maxxed. */
                 if (xnet->general->max_connections <= xnet->connections->connection_count) {
                     /* Retry */
@@ -189,37 +199,35 @@ int xnet_start(xnet_box *xnet)
                     close(client_socket);
                     continue;
                 }
-                xnet->connections->connection_count++;
-                xnet->connections->client[0].socket = client_socket;
-                set_non_blocking(client_socket);
-                int yes = 1;
-                setsockopt(client_socket, SOL_SOCKET, SO_KEEPALIVE, &yes, sizeof(yes));
                 
-            } else if (ep_events[i].data.fd == monitor_fd) {
-                if (0 == xnet->connections->connection_count) {
+                struct xnet_active_connection *new_client = xnet_create_connection(xnet, client_socket);
+                if (NULL == new_client) {
+                    fprintf(stderr, "Failed to create connection data. Dropping connection.\n");
+                    close(client_socket);
                     continue;
                 }
+            } else if (sfd == ep_events[i].data.fd) {
+                ssize_t sigread = read(sfd, &fdsi, sizeof(struct signalfd_siginfo));
 
-                /* Check if client connection is still alive. */
-                puts("Checking clients");
-                char time_buffer[2048] = {0};
-                int res = read(monitor_fd, time_buffer, sizeof(time_buffer)); // Clear timer buffer so event gets reset.
-                printf("%d\n", res);
-                
-                const char *keep_alive = "hello";
-                int res2 = write(xnet->connections->client[0].socket, keep_alive, strnlen(keep_alive, 2048));
-                printf("wrote: %d\n", res2);
-
-
+                if (SIGINT == fdsi.ssi_signo || SIGQUIT == fdsi.ssi_signo) {
+                   printf("Got SIGINT\n");
+                   xnet->general->is_running = false;
+                }
             } else {
                 puts("Client sent something.");
                 printf("Reading file descriptor '%d' -- ", ep_events[i].data.fd);
 
                 char temp_buffer[51];
                 ssize_t bytes_read = read(ep_events[i].data.fd, temp_buffer, sizeof(temp_buffer));
+
+                /* EOF Check for client disconnect. */
                 if (0 == bytes_read) {
                     puts("closing");
-                    close(ep_events[i].data.fd);
+                    xnet_active_connection_t *this_client = xnet_get_conn_by_socket(xnet, ep_events[i].data.fd);
+                    if (NULL == this_client) {
+                        puts("wut");
+                    }
+                    xnet_close_connection(xnet, this_client);
                 }
 
                 printf("%zd bytes read.\n", bytes_read);
@@ -240,13 +248,13 @@ handle_err:
     return err;
 }
 
-int xnet_shutdown(xnet_box *xnet)
+int xnet_shutdown(xnet_box_t *xnet)
 {
     (void)xnet;
     return 0;
 }
 
-int xnet_destroy(xnet_box *xnet)
+int xnet_destroy(xnet_box_t *xnet)
 {
     int err = 0;
 
@@ -260,6 +268,7 @@ int xnet_destroy(xnet_box *xnet)
     nfree((void **)&xnet->general);
     nfree((void **)&xnet->network);
     nfree((void **)&xnet->thread);
+    nfree((void **)&xnet->connections->clients);
     nfree((void **)&xnet->connections);
     nfree((void **)&xnet);
 
@@ -284,41 +293,41 @@ static int epoll_ctl_add(int epoll_fd, struct epoll_event *an_event, int fd, uin
     return result;
 }
 
-static xnet_box *initialize_xnet_box(void)
+static xnet_box_t *initialize_xnet_box(void)
 {
     int err = 0;
 
     /* Allocate space for every group. */
     /* ----------XNET CORE---------- */
-    xnet_box *new_xnet = calloc(1, sizeof(*new_xnet));
+    xnet_box_t *new_xnet = calloc(1, sizeof(xnet_box_t));
     if (NULL == new_xnet) {
         err = E_GEN_FAIL_ALLOC;
         goto handle_err;
     }
 
     /* ----------XNET GENERAL---------- */
-    new_xnet->general = calloc(1, sizeof(*new_xnet->general));
+    new_xnet->general = calloc(1, sizeof(xnet_general_group_t));
     if (NULL == new_xnet->general) {
         err = E_GEN_FAIL_ALLOC;
         goto handle_err;
     }
 
     /* ----------XNET NETWORK---------- */
-    new_xnet->network = calloc(1, sizeof(*new_xnet->network));
+    new_xnet->network = calloc(1, sizeof(xnet_network_group_t));
     if (NULL == new_xnet->network) {
         err = E_GEN_FAIL_ALLOC;
         goto handle_err;
     }
 
     /* ----------XNET THREAD---------- */
-    new_xnet->thread = calloc(1, sizeof(*new_xnet->thread));
+    new_xnet->thread = calloc(1, sizeof(xnet_thread_group_t));
     if (NULL == new_xnet->thread) {
         err = E_GEN_FAIL_ALLOC;
         goto handle_err;
     }
 
     /* ----------XNET CONNECTIONS---------- */
-    new_xnet->connections = calloc(1, sizeof(*new_xnet->connections));
+    new_xnet->connections = calloc(1, sizeof(xnet_connection_group_t));
     if (NULL == new_xnet->connections) {
         err = E_GEN_FAIL_ALLOC;
         goto handle_err;
@@ -336,7 +345,7 @@ handle_err:
     return NULL;
 }
 
-static int xnet_configure(xnet_box *xnet)
+static int xnet_configure(xnet_box_t *xnet)
 {
     int err = 0;
 
@@ -385,8 +394,6 @@ static int xnet_configure(xnet_box *xnet)
                      SO_REUSEADDR,
                      &opts,
                      sizeof(opts));
-
-    
 
     if (0 != err) {
         err = E_SRV_FAIL_SOCK_OPT;

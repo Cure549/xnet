@@ -22,11 +22,10 @@ DEPS := $(OBJS:.o=.d)
 
 INC_DIRS := $(shell find $(H_FILE_DIRS) -type d)
 INC_FLAGS := $(addprefix -I,$(INC_DIRS))
-CFLAGS += -Wall -Wextra -Wpedantic -Waggregate-return 
-CFLAGS += -Wwrite-strings -Wvla -Wfloat-equal
-CFLAGS += -std=c99 -D_GNU_SOURCE
-CPPFLAGS += -Wall -Wextra
-LDFLAGS += -L. -lm -lpthread
+CFLAGS += -Wall -Wextra -Wpedantic -Waggregate-return \
+		  -Wwrite-strings -Wvla -Wfloat-equal \
+          -std=c99 -D_GNU_SOURCE
+LDFLAGS += -lm -lpthread
 
 # Determine path for executable
 _EXEC_LOC ?= $(TARGET_EXEC)

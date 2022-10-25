@@ -24,6 +24,8 @@ static const char *const _gerr_desc[] = {
     [E_SRV_INVALID_IP] = "Failed to assign ip",
     [E_SRV_INVALID_BACKLOG] = "Failed to assign backlog",
     [E_SRV_INVALID_TIMEOUT] = "Failed to assign timeout",
+    [E_SRV_BAD_SOCKET] = "Bad socket given",
+    [E_SRV_CLIENT_MAX_REACHED] = "Max clients reached",
 };
 
 static const char *

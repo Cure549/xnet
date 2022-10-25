@@ -40,6 +40,8 @@ enum GERR_XNet {
     E_SRV_INVALID_IP = 2510,
     E_SRV_INVALID_BACKLOG = 2511,
     E_SRV_INVALID_TIMEOUT = 2512,
+    E_SRV_BAD_SOCKET = 2513,
+    E_SRV_CLIENT_MAX_REACHED = 2514,
 };
 
 // Perror style support for GErrors.
