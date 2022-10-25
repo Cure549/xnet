@@ -44,6 +44,8 @@ xnet_active_connection_t *xnet_create_connection(xnet_box_t *xnet, int socket);
 
 int xnet_close_connection(xnet_box_t *xnet, xnet_active_connection_t *client);
 
+void xnet_debug_connections(xnet_box_t *xnet);
+
 #ifdef __cplusplus
 }
 #endif

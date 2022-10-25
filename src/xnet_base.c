@@ -55,7 +55,7 @@ xnet_box_t *xnet_create(const char *ip, size_t port, size_t backlog, size_t time
     }
 
     /* Is given port within a valid range? */
-    if (XNET_PORT_MIN >= port) {
+    if (XNET_PORT_MIN > port) {
         err = E_SRV_INVALID_PORT;
         g_show_err(err, "! ASSIGNING DEFAULT PORT !");
         port = XNET_PORT_DEFAULT;
@@ -156,8 +156,7 @@ int xnet_start(xnet_box_t *xnet)
     sigaddset(&mask, SIGINT);
     sigaddset(&mask, SIGQUIT);
 
-    /* Block signals so that they aren't handled
-        according to their default dispositions */
+    /* Modify signal's default dispositions */
 
     if (sigprocmask(SIG_BLOCK, &mask, NULL) == -1)
         puts("sigprocmask");
@@ -206,12 +205,17 @@ int xnet_start(xnet_box_t *xnet)
                     close(client_socket);
                     continue;
                 }
+
+                xnet_debug_connections(xnet);
+
             } else if (sfd == ep_events[i].data.fd) {
-                ssize_t sigread = read(sfd, &fdsi, sizeof(struct signalfd_siginfo));
+                read(sfd, &fdsi, sizeof(struct signalfd_siginfo));
 
                 if (SIGINT == fdsi.ssi_signo || SIGQUIT == fdsi.ssi_signo) {
-                   printf("Got SIGINT\n");
-                   xnet->general->is_running = false;
+                   int try_shut = xnet_shutdown(xnet);
+                   if (0 != try_shut) {
+                        fprintf(stderr, "Failed to shutdown\n");
+                   }
                 }
             } else {
                 puts("Client sent something.");
@@ -250,8 +254,22 @@ handle_err:
 
 int xnet_shutdown(xnet_box_t *xnet)
 {
-    (void)xnet;
+    int err = 0;
+
+    /* Null check */
+    if (NULL == xnet) {
+        err = E_GEN_NULL_PTR;
+        goto handle_err;
+    }
+
+    xnet->general->is_running = false;
+
     return 0;
+
+/* Unreachable unless error is triggered. */
+handle_err:
+    g_show_err(err, "xnet_shutdown()");
+    return err;
 }
 
 int xnet_destroy(xnet_box_t *xnet)

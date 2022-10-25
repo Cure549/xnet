@@ -161,3 +161,21 @@ handle_err:
     g_show_err(err, "xnet_close_connection()");
     return err;
 }
+
+void xnet_debug_connections(xnet_box_t *xnet)
+{
+	puts("[XNET CONNECTION DEBUG]");
+	printf("Max Connections: %ld\n", xnet->general->max_connections);
+	printf("Active Connections: %ld\n", xnet->connections->connection_count);
+	for (size_t n = 0; n < xnet->connections->connection_count; n++) {
+		printf("---------------\n");
+		printf("Connection #: %ld\n", n+1);
+		printf("Index position: %ld\n", n);
+		printf("Active: %d\n", xnet->connections->clients[n].active);
+		printf("Socket: %d\n", xnet->connections->clients[n].socket);
+		printf("SessionID: %ld\n", xnet->connections->clients[n].session_id);
+		printf("---------------\n");
+	}
+
+	return;
+}
