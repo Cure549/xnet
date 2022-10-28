@@ -52,7 +52,7 @@ Create wired protocols for various actions
 1. Server denied connection
     - Session timeout
     - Inactive timeout
-    - 
+    - Server has reached max connections
 
 XNet
 -----

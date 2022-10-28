@@ -228,9 +228,21 @@ int xnet_start(xnet_box_t *xnet)
                 };
 
                 struct test test1 = {0};
-                ssize_t bytes_read = read(ep_events[i].data.fd, &test1, sizeof(test1));
-                printf("%d\n", test1.opcode);
-                printf("%d\n", test1.length);
+                char buffer[2048];
+                ssize_t bytes_read = read(ep_events[i].data.fd, buffer, sizeof(buffer));
+                memcpy(&test1.opcode, buffer, 2);
+                memcpy(&test1.length, buffer+2, 2);
+                test1.opcode = htons(test1.opcode);
+                test1.length = htons(test1.length);
+                test1.msg = calloc(test1.length, sizeof(char));
+
+                memcpy(test1.msg, buffer+4, test1.length);
+                // test1.msg[test1.length] = '\n';
+
+                printf(":opcode:%d\n", test1.opcode);
+                printf(":length:%d\n", test1.length);
+                printf(":msg:%s\n", test1.msg);
+
 
                 /* EOF Check for client disconnect. */
                 if (0 == bytes_read) {
