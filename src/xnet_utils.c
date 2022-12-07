@@ -72,10 +72,10 @@ xnet_active_connection_t *xnet_get_conn_by_socket(xnet_box_t *xnet, int socket)
 
 	/* Loop through all active connections and find potential match. */
 	xnet_active_connection_t *needle = NULL;
-	for (size_t n = 0; n < xnet->connections->connection_count; n++) {
+	for (size_t n = 0; n < xnet->general->max_connections; n++) {
 		if (socket == xnet->connections->clients[n].socket) {
 			needle = &xnet->connections->clients[n];
-			printf("Socket (%d): located at index[%ld]\n", socket, n);
+			printf("Dropped Socket (%d): located at index[%ld]\n", socket, n);
 		}
 	}
 
@@ -205,12 +205,14 @@ short xnet_get_opcode(xnet_box_t *xnet, int client_fd)
 		xnet_active_connection_t *this_client = xnet_get_conn_by_socket(xnet, client_fd);
 		if (NULL == this_client) {
 			err = E_GEN_NULL_PTR;
+			puts("!!");
 			goto handle_err;
 		}
 
 		int close_status = xnet_close_connection(xnet, this_client);
 		if (0 != close_status) {
 			err = E_GEN_NON_ZERO;
+			puts("??");
 			goto handle_err;
 		}
 	}
