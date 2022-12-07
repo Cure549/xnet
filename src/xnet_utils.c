@@ -11,33 +11,42 @@ xnet_add_op_to_whitelist(server *, operation enum value);
 xnet_give_addon(server *, XNET_FTP_ID);
 
 // Generates a random session id, and returns it.
-xnet_get_new_session(void);
+xnet_session_new(void);
 
-// Should be used in client work, tells server when to begin session countdown for a client.
-xnet_begin_session();
+// Should be used in client work, tells server when to begin session timeout for a client.
+xnet_session_begin();
 
 // Compares a given session id, to a active user's session id.
-xnet_is_session_valid(size_t session_id, user)
+xnet_session_is_valid(size_t session_id, user)
 
 */
 
+/**
+ * @brief Responsible for generating a random session ID.
+ * 
+ * @return size_t Random session ID.
+ */
+static size_t xnet_new_session(void);
+
 int set_non_blocking(int sockfd)
 {
-	int flags, s;
-	flags = fcntl(sockfd, F_GETFL, 0);
-	if(flags == -1)
-	{
-		perror("fcntl");
-		return -1;
+	int err = 0;
+
+	/* Attempt to set socket to non blocking. */
+	err = fcntl(sockfd, F_SETFL, fcntl(sockfd, F_GETFL, 0) | O_NONBLOCK);
+
+	/* If this condition is met, there is something seriously wrong. */
+	if (-1 == err) {
+		err = E_SRV_FAIL_SOCK_OPT;
+		goto handle_err;
 	}
-	flags |= O_NONBLOCK;
-	s = fcntl(sockfd, F_SETFL, flags);
-	if(s == -1)
-	{
-		perror("fcntl");
-		return -1;
-	}
-	return 0;
+
+	return err;
+
+/* Unreachable unless error is triggered. */
+handle_err:
+    g_show_err(err, "set_non_blocking()");
+    return -1;
 }
 
 void nfree(void **ptr)
@@ -123,7 +132,7 @@ xnet_active_connection_t *xnet_create_connection(xnet_box_t *xnet, int socket)
 
 	new_client->active = true;
 	new_client->socket = socket;
-	new_client->session_id = 0; // TODO: Make this an actual session.
+	new_client->session_id = xnet_new_session(); // TODO: Make this an actual session.
 	xnet->connections->connection_count++;
 
 	return new_client;
@@ -164,6 +173,11 @@ handle_err:
 
 void xnet_debug_connections(xnet_box_t *xnet)
 {
+	/* NULL Check */
+	if (NULL == xnet) {
+		return;
+	}
+
 	puts("[XNET CONNECTION DEBUG]");
 	printf("Max Connections: %ld\n", xnet->general->max_connections);
 	printf("Active Connections: %ld\n", xnet->connections->connection_count);
@@ -178,4 +192,41 @@ void xnet_debug_connections(xnet_box_t *xnet)
 	}
 
 	return;
+}
+
+short xnet_get_opcode(xnet_box_t *xnet, int client_fd)
+{
+	short err = 0;
+
+	ssize_t bytes_read = read(client_fd, &err, sizeof(short));
+	
+	/* EOF Check for client disconnect. */
+	if (0 == bytes_read) {
+		xnet_active_connection_t *this_client = xnet_get_conn_by_socket(xnet, client_fd);
+		if (NULL == this_client) {
+			err = E_GEN_NULL_PTR;
+			goto handle_err;
+		}
+
+		int close_status = xnet_close_connection(xnet, this_client);
+		if (0 != close_status) {
+			err = E_GEN_NON_ZERO;
+			goto handle_err;
+		}
+	}
+
+	/* Network to host byte order. */
+	return ntohs(err);
+
+	/* Unreachable unless error is triggered. */
+handle_err:
+    g_show_err(err, "xnet_get_opcode()");
+    return err;
+}
+
+static size_t xnet_new_session(void)
+{
+	int new_session = rand() / 100;
+
+	return (size_t)new_session;
 }

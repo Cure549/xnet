@@ -35,7 +35,7 @@ extern "C" {
 #define XNET_PORT_MIN                1030
 #define XNET_PORT_MAX                65535
 
-#define XNET_MAX_CONNECTIONS_DEFAULT 10
+#define XNET_MAX_CONNECTIONS_DEFAULT 5
 
 #define XNET_BACKLOG_MAX             128
 #define XNET_BACKLOG_DEFAULT         128
@@ -50,13 +50,13 @@ typedef struct xnet_box {
     struct xnet_network_group *network;
     struct xnet_thread_group *thread;
     struct xnet_connection_group *connections;
-    struct xnet_addon_userbase *m_userbase;
+    struct xnet_userbase_group *m_userbase;
     struct xnet_addon_chat *m_chat;
     struct xnet_addon_ftp *m_ftp;
 } xnet_box_t ; 
 
 typedef struct xnet_active_connection {
-    bool active;
+    bool active; // General state of client. If false, client is no longer actively connected to server.
     int socket;
     // Userbase entry here...
     size_t session_id;
@@ -87,7 +87,7 @@ typedef struct xnet_connection_group {
     xnet_active_connection_t *clients;
 } xnet_connection_group_t ;
 
-struct xnet_addon_userbase {
+struct xnet_userbase_group {
     int unused;
 };
 
@@ -100,7 +100,7 @@ struct xnet_addon_ftp {
 };
 
 /**
- * @brief Creates a new XNet server. If invalid data is given, 
+ * @brief Creates a new XNet server. If invalid values are given, 
  * XNet will default to the labelled definitions that can be found at the top of xnet_base.h
  * 
  * @param ip String representation of an ip address. Must be IPv4 or the default value will be used.

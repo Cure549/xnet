@@ -22,9 +22,20 @@ extern "C" {
 
 #include "xnet_base.h"
 
+typedef enum xnet_opcodes
+{
+    CORE_LOGIN = 10,
+    CORE_DISCONNECT = 11,
+    FTP_CREATE_FILE = 100,
+    FTP_MAKE_DIR = 101,
+    FTP_SEARCH_DIR = 102,
+    FTP_GET_FILE = 103,
+    FTP_PUT_FILE = 104,
+    FTP_DELETE_FILE = 105,
+} xnet_opcodes_t;
+
 /**
  * @brief Set @param sockfd to non-blocking.
- * Source https://github.com/Menghongli/C-Web-Server/blob/master/epoll-server.c
  * 
  * @param sockfd File descriptor for a socket.
  * @return int -1 on failure. 0 on success.
@@ -45,6 +56,13 @@ xnet_active_connection_t *xnet_create_connection(xnet_box_t *xnet, int socket);
 int xnet_close_connection(xnet_box_t *xnet, xnet_active_connection_t *client);
 
 void xnet_debug_connections(xnet_box_t *xnet);
+
+/**
+ * @brief Extracts the opcode from a inbound packet.
+ * 
+ * @return unsigned short 
+ */
+short xnet_get_opcode(xnet_box_t *xnet, int client_fd);
 
 #ifdef __cplusplus
 }

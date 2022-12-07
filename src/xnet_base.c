@@ -130,6 +130,10 @@ int xnet_start(xnet_box_t *xnet)
 
     /* Allocate space for connections. */
     xnet->connections->clients = calloc(xnet->general->max_connections, sizeof(xnet_active_connection_t));
+    if (NULL == xnet->connections->clients) {
+        err = E_GEN_FAIL_ALLOC;
+        goto handle_err;
+    }
 
     /* XNet start sequence */
     printf("[XNet]\nIP: %s\nPort: %ld\n", xnet->general->ip, xnet->general->port);
@@ -137,6 +141,9 @@ int xnet_start(xnet_box_t *xnet)
 
     /* Addrinfo no longer needed. */
     freeaddrinfo(xnet->network->result);
+
+    /* Initialize srand, used for session id generation. */
+    srand(time(NULL));
 
     /* Setup initial state for epoll. */
     struct epoll_event ep_events[XNET_EPOLL_MAX_EVENTS] = {0};
@@ -149,7 +156,6 @@ int xnet_start(xnet_box_t *xnet)
 
     /*---------------- Do signalfd stuff-------- */
     sigset_t mask;
-    int sfd;
     struct signalfd_siginfo fdsi;
 
     sigemptyset(&mask);
@@ -161,7 +167,7 @@ int xnet_start(xnet_box_t *xnet)
     if (sigprocmask(SIG_BLOCK, &mask, NULL) == -1)
         puts("sigprocmask");
 
-    sfd = signalfd(-1, &mask, 0);
+    int sfd = signalfd(-1, &mask, 0);
     if (sfd == -1)
         puts("signalfd");
 
@@ -178,12 +184,14 @@ int xnet_start(xnet_box_t *xnet)
         for (int i = 0; i < event_count; i++) {
             /* If event triggers on listening socket, a connection is being attempted. */
             if (xnet->network->xnet_socket == ep_events[i].data.fd) {
+
                 /* Don't accept connections, if client count is maxxed. */
                 if (xnet->general->max_connections <= xnet->connections->connection_count) {
                     /* Retry */
                     continue;
                 }
-
+                
+                /* Attempt to accept connection. */
                 puts("Connection attempt...");
                 int client_socket = accept(xnet->network->xnet_socket, NULL, NULL);
                 if (-1 == client_socket) {
@@ -191,6 +199,7 @@ int xnet_start(xnet_box_t *xnet)
                     continue;
                 }
                 
+                /* Add client socket fd to epoll's event list. */
                 struct epoll_event client_event = {0};
                 int event_status = epoll_ctl_add(epoll_fd, &client_event, client_socket, EPOLLIN);
                 if (-1 == event_status) {
@@ -199,6 +208,7 @@ int xnet_start(xnet_box_t *xnet)
                     continue;
                 }
                 
+                /* Create XNet connection for client. */
                 struct xnet_active_connection *new_client = xnet_create_connection(xnet, client_socket);
                 if (NULL == new_client) {
                     fprintf(stderr, "Failed to create connection data. Dropping connection.\n");
@@ -212,40 +222,39 @@ int xnet_start(xnet_box_t *xnet)
                 read(sfd, &fdsi, sizeof(struct signalfd_siginfo));
 
                 if (SIGINT == fdsi.ssi_signo || SIGQUIT == fdsi.ssi_signo) {
-                   int try_shut = xnet_shutdown(xnet);
-                   if (0 != try_shut) {
-                        fprintf(stderr, "Failed to shutdown\n");
-                   }
+                    int try_shut = xnet_shutdown(xnet);
+                    if (0 != try_shut) {
+                        fprintf(stderr, "Failed to shutdown.\n");
+                    }
                 }
             } else {
-                puts("Client sent something.");
-                printf("Reading file descriptor '%d' -- ", ep_events[i].data.fd);
+                // puts("Client sent something.");
+                printf("Reading on file descriptor '%d'\n", ep_events[i].data.fd);
 
-                struct test {
-                    int opcode;
-                    int length;
-                    char *msg;
+                short current_op = xnet_get_opcode(xnet, ep_events[i].data.fd);
+
+                struct __attribute__((__packed__)) test_make_dir
+                {
+                    unsigned short length : 16;
+                    char msg[2048];
                 };
 
-                struct test test1 = {0};
-                ssize_t bytes_read = read(ep_events[i].data.fd, &test1, sizeof(test1));
-                printf("%d\n", test1.opcode);
-                printf("%d\n", test1.length);
-
-                /* EOF Check for client disconnect. */
-                if (0 == bytes_read) {
-                    puts("closing");
-                    xnet_active_connection_t *this_client = xnet_get_conn_by_socket(xnet, ep_events[i].data.fd);
-                    if (NULL == this_client) {
-                        puts("wut");
-                    }
-                    xnet_close_connection(xnet, this_client);
+                switch(current_op) // -- Obtained from first read call
+                {
+                    case FTP_CREATE_FILE:
+                        printf("Doing FTP Create File operation.\n");
+                        // Read into ftp_create_file struct
+                        break;
+                    case FTP_MAKE_DIR:
+                        printf("Doing FTP Make Dir operation.\n");
+                        // Read into ftp_make_dir struct
+                        struct test_make_dir mdir = {0};
+                        ssize_t bytes_read = read(ep_events[i].data.fd, &mdir, sizeof(struct test_make_dir));
+                        printf("%d (%s)\n", ntohs(mdir.length), mdir.msg);
+                        break;
+                    default:
+                        break;
                 }
-
-                printf("%zd bytes read.\n", bytes_read);
-                
-                // temp_buffer[bytes_read] = '\0';
-                // printf("Read '%s'\n", temp_buffer);
 
                 /* Thread off to do some client work. */
             }
@@ -270,6 +279,7 @@ int xnet_shutdown(xnet_box_t *xnet)
         goto handle_err;
     }
 
+    printf("Attempting to shutdown...\n");
     xnet->general->is_running = false;
 
     return 0;
@@ -382,7 +392,7 @@ static int xnet_configure(xnet_box_t *xnet)
 
     /* ----------NETWORK CATEGORY---------- */
     /* Need the string representation of port for getaddrinfo()
-     * 24 bytes is an arbitrarily chosen value for the stringified port to fall
+     * 24 bytes is an arbitrarily chosen value for the 'stringified' port to fall
      * into. 
     */
     char port_to_string[24];
