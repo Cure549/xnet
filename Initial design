@@ -1,10 +1,5 @@
 *Scratch design - improve at a later date*
 
-BUG TO FIX:
-    - Start server
-    - Connect 3 clients
-    - Close clients 1 by 1, after the last client is disconnected, a looping error related to xnet_get_opcode() occurs.
-
 TODO:
     - Implement sessions and timeout
     - Refactor and seperate sigaction handling.
@@ -74,3 +69,9 @@ Handling possible denied connections from there should be more straight-forward.
 XNet
 -----
 A general-purpose server library that employs an 'addon' approach to add capabilities. XNet currently has 3 addons that support it. Userbase, FTP, and Chat. All of which are interchangable. Each addon has various features that can be toggled on and off that the server can gain access to. For example, the FTP addon allows for various features such as 'get', 'push', 'ls', 'mkdir', etc. Although some servers may want all these features, some may not. XNet has a whitelist-based functionality list. Meaning initially, when informing support of a specific addon, nothing will change, with the exception of the developer now having the ability to add features that are within those addons, to the functionality whitelist. Combine this behaviour with all the addons, and you have a ton of diverse mixtures while also remaining cohesive.
+
+Dev Docs
+---------
+:: Display general flow of Xnet with a diagram
+:: If manipulation of certain functionalities are desired, explain what functions should be changed
+    - Change how a session ID is generated? Modify xnet_new_session()

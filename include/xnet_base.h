@@ -45,6 +45,8 @@ extern "C" {
 
 #define XNET_EPOLL_MAX_EVENTS        10
 
+#define XNET_MAX_PACKET_BUF_SZ       8192
+
 typedef struct xnet_box {
     struct xnet_general_group *general;
     struct xnet_network_group *network;
@@ -69,7 +71,9 @@ typedef struct xnet_general_group {
     size_t backlog;
     size_t connection_timeout;
     size_t max_connections;
-    void (*on_connect)(xnet_active_connection_t *client_data);
+    void (*on_connection_attempt)(xnet_active_connection_t *client_data);
+    void (*on_terminate_signal)(xnet_active_connection_t *client_data);
+    void (*on_client_send)(xnet_active_connection_t *client_data);
 } xnet_general_group_t ;
 
 typedef struct xnet_network_group {

@@ -185,6 +185,11 @@ int xnet_start(xnet_box_t *xnet)
             /* If event triggers on listening socket, a connection is being attempted. */
             if (xnet->network->xnet_socket == ep_events[i].data.fd) {
 
+                /* Replace below code with function pointer for (on_connection_attempted) 
+                   This will allow either the default assigned XNet function to handle incoming connections,
+                   or allow the dev to override the function if desired.
+                */
+
                 /* Don't accept connections, if client count is maxxed. */
                 if (xnet->general->max_connections <= xnet->connections->connection_count) {
                     /* Retry */
@@ -229,9 +234,11 @@ int xnet_start(xnet_box_t *xnet)
                 }
             } else {
                 // puts("Client sent something.");
-                printf("Reading on file descriptor '%d'\n", ep_events[i].data.fd);
+                // printf("Reading on file descriptor '%d'\n", ep_events[i].data.fd);
 
                 short current_op = xnet_get_opcode(xnet, ep_events[i].data.fd);
+                char packet_trash[XNET_MAX_PACKET_BUF_SZ] = {0};
+                ssize_t bytes_read = 0;
 
                 struct __attribute__((__packed__)) test_make_dir
                 {
@@ -249,10 +256,15 @@ int xnet_start(xnet_box_t *xnet)
                         printf("Doing FTP Make Dir operation.\n");
                         // Read into ftp_make_dir struct
                         struct test_make_dir mdir = {0};
-                        ssize_t bytes_read = read(ep_events[i].data.fd, &mdir, sizeof(struct test_make_dir));
+                        bytes_read = read(ep_events[i].data.fd, &mdir, sizeof(struct test_make_dir));
                         printf("%d (%s)\n", ntohs(mdir.length), mdir.msg);
                         break;
                     default:
+                        /* Flushes buffer if op code is not recognized. */
+                        bytes_read = read(ep_events[i].data.fd, packet_trash, XNET_MAX_PACKET_BUF_SZ);
+                        while (0 < bytes_read) {
+                            bytes_read = read(ep_events[i].data.fd, packet_trash, XNET_MAX_PACKET_BUF_SZ);
+                        }
                         break;
                 }
 
@@ -386,9 +398,11 @@ static int xnet_configure(xnet_box_t *xnet)
     int err = 0;
 
     /* ----------GENERAL CATEGORY---------- */
-    xnet->general->is_running           = false;
-    xnet->general->max_connections      = XNET_MAX_CONNECTIONS_DEFAULT;
-    xnet->general->on_connect           = NULL;
+    xnet->general->is_running            = false;
+    xnet->general->max_connections       = XNET_MAX_CONNECTIONS_DEFAULT;
+    xnet->general->on_connection_attempt = NULL;
+    xnet->general->on_terminate_signal   = NULL;
+    xnet->general->on_client_send        = NULL;
 
     /* ----------NETWORK CATEGORY---------- */
     /* Need the string representation of port for getaddrinfo()
@@ -417,7 +431,6 @@ static int xnet_configure(xnet_box_t *xnet)
     xnet->network->xnet_socket = socket(xnet->network->result->ai_family,
                                         xnet->network->result->ai_socktype,
                                         xnet->network->result->ai_protocol);
-
     if (-1 == xnet->network->xnet_socket) {
         err = E_SRV_FAIL_SOCK;
         goto handle_err;

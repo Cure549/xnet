@@ -75,7 +75,6 @@ xnet_active_connection_t *xnet_get_conn_by_socket(xnet_box_t *xnet, int socket)
 	for (size_t n = 0; n < xnet->general->max_connections; n++) {
 		if (socket == xnet->connections->clients[n].socket) {
 			needle = &xnet->connections->clients[n];
-			printf("Dropped Socket (%d): located at index[%ld]\n", socket, n);
 		}
 	}
 
@@ -181,14 +180,16 @@ void xnet_debug_connections(xnet_box_t *xnet)
 	puts("[XNET CONNECTION DEBUG]");
 	printf("Max Connections: %ld\n", xnet->general->max_connections);
 	printf("Active Connections: %ld\n", xnet->connections->connection_count);
-	for (size_t n = 0; n < xnet->connections->connection_count; n++) {
-		printf("---------------\n");
-		printf("Connection #: %ld\n", n+1);
-		printf("Index position: %ld\n", n);
-		printf("Active: %d\n", xnet->connections->clients[n].active);
-		printf("Socket: %d\n", xnet->connections->clients[n].socket);
-		printf("SessionID: %ld\n", xnet->connections->clients[n].session_id);
-		printf("---------------\n");
+	for (size_t n = 0; n < xnet->general->max_connections; n++) {
+		if (true == xnet->connections->clients[n].active) {
+			printf("---------------\n");
+			printf("Connection #: %ld\n", n+1);
+			printf("Index position: %ld\n", n);
+			printf("Active: %d\n", xnet->connections->clients[n].active);
+			printf("Socket: %d\n", xnet->connections->clients[n].socket);
+			printf("SessionID: %ld\n", xnet->connections->clients[n].session_id);
+			printf("---------------\n");
+		}
 	}
 
 	return;
@@ -205,16 +206,16 @@ short xnet_get_opcode(xnet_box_t *xnet, int client_fd)
 		xnet_active_connection_t *this_client = xnet_get_conn_by_socket(xnet, client_fd);
 		if (NULL == this_client) {
 			err = E_GEN_NULL_PTR;
-			puts("!!");
 			goto handle_err;
 		}
 
 		int close_status = xnet_close_connection(xnet, this_client);
 		if (0 != close_status) {
 			err = E_GEN_NON_ZERO;
-			puts("??");
 			goto handle_err;
 		}
+
+		xnet_debug_connections(xnet);
 	}
 
 	/* Network to host byte order. */
