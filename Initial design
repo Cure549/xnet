@@ -1,0 +1,77 @@
+*Scratch design - improve at a later date*
+
+TODO:
+    - Implement sessions and timeout
+    - Refactor and seperate sigaction handling.
+    - When max_clients is exceeded, the connection should be accepted, send connection full packet, and immedietly dropped.
+    - Add configure methods for various xnet variables.
+    - Client should combine connecting to server, and logging in to server, as a single action.
+    - Ensure all functions are being properly error checked and tidy up as much as possible.
+
+
+Create wired protocols for various actions
+    -join_room
+    -create_new_user
+    -login
+    -list_rooms
+    -list_room_users
+    -send_room_message
+    -send_dm <to_user> <message>
+    -send_file
+    -recv_file
+    -operation_result (Contains a way to inform both client and server if operation was successful or not.)
+
+- Refactor and modularize tcp server library
+- Categories for server {General, Network, Thread, Connections, Userbase, Roombase}
+- Sigaction
+
+- 5 rooms in total, including a waiting room (the starting room)
+- Use randomized sessions to validate users
+
+- Client will need to be threaded.
+    - One thread as the main interaction thread.
+    - Additional thread awaiting incoming messages from other users.
+
+- Xnet addons such as chat and ftp should be completely configured to support a wide variety of actions. As well as allowing full support for having them coexist.
+
+- Server will use epoll and the main server thread will be running the event loop, everytime a tracked fd pops an event,
+  that will trigger the spawn of a thread and be given the fd value that got triggered.
+  Read in the buffer stream correlated to said fd, and based off the opcode, do data validation and assign data to specific operation struct.
+
+----------------------------------------------
+*Send Direct Message Protocol from client*
+*Values below represent size in bytes*
+
+    1         2            2             ...           2            ...           8         ...                                      
+[opcode][session_id][from_user_len][from_username][to_user_len][to_username][message_len][message]
+
+1. from_client sends message request to server.
+2. Server verifies given data, along with user's session id.
+3. Server identifies if to_user exists and is actively online.
+4. If step 2/3 fail, Server sends operation_result to from_client indicating message could not be sent.
+5. Server sends packet containing from_user and message to to_client.
+6. to_client's listening thread does verification on packet sent.
+7. If successful, print message out, otherwise, do nothing. return a operation_result packet to server.
+8. Server takes response packet, validates.
+9. Server sends from_client the operation_result packet.
+10. from_client validates packet and uses the operation_result packet as a way to identify if the message was sent or not.
+----------------------------------------------
+
+*General Protocols
+1. Server denied connection
+    - Session timeout
+    - Max connections reached
+    - Invalid login (if userbase is enabled.)
+
+Logging in from client-side should send a connection request along with a login packet. 
+Handling possible denied connections from there should be more straight-forward.
+
+XNet
+-----
+A general-purpose server library that employs an 'addon' approach to add capabilities. XNet currently has 3 addons that support it. Userbase, FTP, and Chat. All of which are interchangable. Each addon has various features that can be toggled on and off that the server can gain access to. For example, the FTP addon allows for various features such as 'get', 'push', 'ls', 'mkdir', etc. Although some servers may want all these features, some may not. XNet has a whitelist-based functionality list. Meaning initially, when informing support of a specific addon, nothing will change, with the exception of the developer now having the ability to add features that are within those addons, to the functionality whitelist. Combine this behaviour with all the addons, and you have a ton of diverse mixtures while also remaining cohesive.
+
+Dev Docs
+---------
+:: Display general flow of Xnet with a diagram
+:: If manipulation of certain functionalities are desired, explain what functions should be changed
+    - Change how a session ID is generated? Modify xnet_new_session()
