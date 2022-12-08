@@ -191,6 +191,7 @@ int xnet_start(xnet_box_t *xnet)
                 */
 
                 /* Don't accept connections, if client count is maxxed. */
+                /* Needs to be refactored. */
                 if (xnet->general->max_connections <= xnet->connections->connection_count) {
                     /* Retry */
                     continue;
