@@ -80,7 +80,6 @@ xnet_active_connection_t *xnet_get_conn_by_socket(xnet_box_t *xnet, int socket)
 
 	return needle;
 
-
 /* Unreachable unless error is triggered. */
 handle_err:
     g_show_err(err, "xnet_get_conn_by_socket()");
@@ -157,9 +156,10 @@ int xnet_close_connection(xnet_box_t *xnet, xnet_active_connection_t *client)
 		goto handle_err;
 	}
 
-	client->active = false;
 	close(client->socket);
+	client->active = false;
 	client->session_id = 0;
+	memset(&client->client_event, 0, sizeof(struct epoll_event));
 	xnet->connections->connection_count--;
 
 	return 0;

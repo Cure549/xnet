@@ -1,5 +1,9 @@
 *Scratch design - improve at a later date*
 
+!! BUG
+    - Program gets hung when client disconnects
+    = Connect client, then disconnect client, server hangs.
+
 TODO:
     - Implement sessions and timeout
     - Refactor and seperate sigaction handling.
@@ -7,6 +11,10 @@ TODO:
     - Add configure methods for various xnet variables.
     - Client should combine connecting to server, and logging in to server, as a single action.
     - Ensure all functions are being properly error checked and tidy up as much as possible.
+
+    !! Add all epoll and signal related fd's to network group.
+    !! Limit params needed to pass to necessary functions.
+    !! Clean up code, remove unnecessary comments, and do a pass on return checks
 
 
 Create wired protocols for various actions
