@@ -197,7 +197,7 @@ void xnet_debug_connections(xnet_box_t *xnet)
 
 short xnet_get_opcode(xnet_box_t *xnet, int client_fd)
 {
-	short err = 0;
+	int err = 0;
 
 	ssize_t bytes_read = read(client_fd, &err, sizeof(short));
 	
@@ -224,6 +224,7 @@ short xnet_get_opcode(xnet_box_t *xnet, int client_fd)
 	/* Unreachable unless error is triggered. */
 handle_err:
     g_show_err(err, "xnet_get_opcode()");
+	err = 0;
     return err;
 }
 

@@ -101,6 +101,10 @@ xnet_box_t *xnet_create(const char *ip, size_t port, size_t backlog, size_t time
 
     /* Configure XNet to user-specified values. */
     err = xnet_configure(new_xnet);
+
+    /* Addrinfo no longer needed, regardless of return on 'xnet_configure()'. */
+    freeaddrinfo(new_xnet->network->result);
+
     if (0 != err) {
         err = E_SRV_FAIL_CREATE;
         xnet_destroy(new_xnet);
@@ -144,15 +148,10 @@ int xnet_start(xnet_box_t *xnet)
     printf("[XNet]\nIP: %s\nPort: %ld\n", xnet->general->ip, xnet->general->port);
     xnet->general->is_running = true;
 
-    /* Addrinfo no longer needed. */
-    freeaddrinfo(xnet->network->result);
-
     /* Initialize srand, used for session id generation. */
     srand(time(NULL));
 
     /* Setup initial state for epoll. */
-    // struct epoll_event ep_events[XNET_EPOLL_MAX_EVENTS] = {0};
-    // int epoll_fd = epoll_create1(0);
     xnet->network->epoll_fd = epoll_create1(0);
 
     /* Create epoll event for XNet's listening socket. */
@@ -181,23 +180,19 @@ int xnet_start(xnet_box_t *xnet)
         int event_count = epoll_wait(xnet->network->epoll_fd, xnet->network->ep_events, XNET_EPOLL_MAX_EVENTS, -1);
     
         for (int i = 0; i < event_count; i++) {
-            puts("hi");
             /* If event triggers on listening socket, a connection is being attempted. */
             if (xnet->network->xnet_socket == xnet->network->ep_events[i].data.fd) {
                 xnet->general->on_connection_attempt(xnet);
 
             /* If event triggers on signal fd, SIGINT or SIGQUIT were executed. */
             } else if (xnet->network->signal_fd == xnet->network->ep_events[i].data.fd) {
-                puts("boo3");
                 xnet->general->on_terminate_signal(xnet);
             
             /* If event triggers on any other fd within the event array, a client is interacting with server. */
             } else {
-                puts("boo");
                 xnet_active_connection_t *me = xnet_get_conn_by_socket(xnet, xnet->network->ep_events[i].data.fd);
                 /* Pool worker should be calling this. */
                 xnet->general->on_client_send(xnet, me);
-                puts("exited");
             }
         }
     }
@@ -480,6 +475,10 @@ static void xnet_default_on_terminate_signal(xnet_box_t *xnet)
 static void xnet_default_on_client_send(xnet_box_t *xnet, xnet_active_connection_t *me)
 {
     short current_op = xnet_get_opcode(xnet, me->client_event.data.fd);
+    /* Check EOF */
+    if (0 == current_op) {
+        return;
+    }
     char packet_trash[XNET_MAX_PACKET_BUF_SZ] = {0};
     ssize_t bytes_read = 0;
 

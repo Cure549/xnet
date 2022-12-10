@@ -4,6 +4,9 @@
     - Program gets hung when client disconnects
     = Connect client, then disconnect client, server hangs.
 
+!! Leak
+    - If server is running, another instance of the server will cause expected failure, however there is a leak.
+
 TODO:
     - Implement sessions and timeout
     - Refactor and seperate sigaction handling.
