@@ -1,26 +1,7 @@
 #include "xnet_base.h"
 #include "xnet_utils.h"
 
-/* 
-Contains all necessary functions and structs related to a base xnet server
-
-Uses a overarching struct containing everything related to various attributes
-
-server
-    General (is_running, ip, port, backlog, max_clients, on_client_connect)
-    Network (server socket, hints, result)
-    Thread (Info for all active threads)
-
-    Connections (Tracks all socket fd's for connected clients)
-        > ActiveConnection struct
-            -client socket
-            -userbase pointer
-            -session_id
-
-    M_Userbase (Addon for xnet. Adds support for a runtime userbase)
-    M_Chat (Addon for xnet. Adds support for chat capabilities.)
-    M_FTP (Addon for xnet. Adds support for ftp capabilities.)
-*/
+/* Contains all necessary functions and structs related to a base xnet server */
 
 /**
  * @brief Static function that's responsible for allocating all necessary memory in a xnet_box_t.

@@ -1,25 +1,5 @@
 *Scratch design - improve at a later date*
 
-!! BUG
-    - Program gets hung when client disconnects
-    = Connect client, then disconnect client, server hangs.
-
-!! Leak
-    - If server is running, another instance of the server will cause expected failure, however there is a leak.
-
-TODO:
-    - Implement sessions and timeout
-    - Refactor and seperate sigaction handling.
-    - When max_clients is exceeded, the connection should be accepted, send connection full packet, and immedietly dropped.
-    - Add configure methods for various xnet variables.
-    - Client should combine connecting to server, and logging in to server, as a single action.
-    - Ensure all functions are being properly error checked and tidy up as much as possible.
-
-    !! Add all epoll and signal related fd's to network group.
-    !! Limit params needed to pass to necessary functions.
-    !! Clean up code, remove unnecessary comments, and do a pass on return checks
-
-
 Create wired protocols for various actions
     -join_room
     -create_new_user
@@ -85,4 +65,4 @@ Dev Docs
 ---------
 :: Display general flow of Xnet with a diagram
 :: If manipulation of certain functionalities are desired, explain what functions should be changed
-    - Change how a session ID is generated? Modify xnet_new_session()
+    - Change how a session ID is generated? Create override for xnet_new_session()
