@@ -382,21 +382,44 @@ static int xnet_signal_disposition(xnet_box_t *xnet)
 {
     int err = 0;
 
-    sigemptyset(&xnet->network->mask);
-    sigaddset(&xnet->network->mask, SIGINT);
-    sigaddset(&xnet->network->mask, SIGQUIT);
+    err = sigemptyset(&xnet->network->mask);
+    if (-1 == err) {
+        err = E_GEN_NON_ZERO;
+        goto handle_err;
+    }
+
+    err = sigaddset(&xnet->network->mask, SIGINT);
+    if (-1 == err) {
+        err = E_GEN_NON_ZERO;
+        goto handle_err;
+    }
+
+    err = sigaddset(&xnet->network->mask, SIGQUIT);
+    if (-1 == err) {
+        err = E_GEN_NON_ZERO;
+        goto handle_err;
+    }
 
     /* Modify signal's default dispositions */
-    if (sigprocmask(SIG_BLOCK, &xnet->network->mask, NULL) == -1)
-        puts("sigprocmask");
+    err = sigprocmask(SIG_BLOCK, &xnet->network->mask, NULL);
+    if (-1 == err) {
+        err = E_GEN_NON_ZERO;
+        goto handle_err;
+    }
 
     xnet->network->signal_fd = signalfd(-1, &xnet->network->mask, 0);
-    if (-1 == xnet->network->signal_fd)
-        puts("signalfd");
+    if (-1 == xnet->network->signal_fd) {
+        err = E_GEN_NON_ZERO;
+        goto handle_err;
+    }
 
-    epoll_ctl_add(xnet->network->epoll_fd, &xnet->network->sfd_event, xnet->network->signal_fd, EPOLLIN);
+    err = epoll_ctl_add(xnet->network->epoll_fd, &xnet->network->sfd_event, xnet->network->signal_fd, EPOLLIN);
+    if (-1 == err) {
+        err = E_GEN_NON_ZERO;
+        goto handle_err;
+    }
 
-    return err;
+    return 0;
 
 /* Unreachable unless error is triggered. */
 handle_err:
