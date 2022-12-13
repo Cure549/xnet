@@ -17,17 +17,18 @@ extern "C" {
 
 #include <stdio.h>
 #include <stdlib.h>
+#include <stdbool.h>
 #include <sys/types.h>
 #include <sys/socket.h>
 #include <sys/epoll.h>
+#include <sys/signalfd.h>
+#include <sys/timerfd.h>
+#include <arpa/inet.h>
 #include <netdb.h>
 #include <string.h>
 #include <unistd.h>
-#include <stdbool.h>
-#include <sys/timerfd.h>
-#include <arpa/inet.h>
 #include <errno.h>
-#include <sys/signalfd.h>
+#include <time.h>
 #include <signal.h>
 
 #include "gerr.h"
@@ -59,13 +60,18 @@ typedef struct xnet_box {
     struct xnet_addon_ftp *m_ftp;
 } xnet_box_t ; 
 
+typedef struct xnet_user_session {
+    int id;
+    time_t start;
+} xnet_user_session_t ;
+
 typedef struct xnet_active_connection {
     /* State of client, if false, connection object lacks a client. */
     bool active;
     int socket;
     struct epoll_event client_event;
     // Userbase entry here...
-    size_t session_id;
+    xnet_user_session_t session;
 } xnet_active_connection_t ;
 
 typedef struct xnet_general_group {
