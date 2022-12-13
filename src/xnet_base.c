@@ -1,29 +1,7 @@
 #include "xnet_base.h"
 #include "xnet_utils.h"
 
-#include <sys/signalfd.h>
-#include <signal.h>
-
-/* 
-Contains all necessary functions and structs related to a base xnet server
-
-Uses a overarching struct containing everything related to various attributes
-
-server
-    General (is_running, ip, port, backlog, max_clients, on_client_connect)
-    Network (server socket, hints, result)
-    Thread (Info for all active threads)
-
-    Connections (Tracks all socket fd's for connected clients)
-        > ActiveConnection struct
-            -client socket
-            -userbase pointer
-            -session_id
-
-    M_Userbase (Addon for xnet. Adds support for a runtime userbase)
-    M_Chat (Addon for xnet. Adds support for chat capabilities.)
-    M_FTP (Addon for xnet. Adds support for ftp capabilities.)
-*/
+/* Contains all necessary functions and structs related to a base xnet server */
 
 /**
  * @brief Static function that's responsible for allocating all necessary memory in a xnet_box_t.
@@ -42,6 +20,14 @@ static xnet_box_t *initialize_xnet_box(void);
 static int xnet_configure(xnet_box_t *xnet);
 
 static int epoll_ctl_add(int epoll_fd, struct epoll_event *an_event, int fd, uint32_t event_list);
+
+static void xnet_default_on_connection_attempt(xnet_box_t *xnet);
+
+static void xnet_default_on_terminate_signal(xnet_box_t *xnet);
+
+static void xnet_default_on_client_send(xnet_box_t *xnet, xnet_active_connection_t *me);
+
+static int xnet_signal_disposition(xnet_box_t *xnet);
 
 xnet_box_t *xnet_create(const char *ip, size_t port, size_t backlog, size_t timeout)
 {
@@ -96,6 +82,10 @@ xnet_box_t *xnet_create(const char *ip, size_t port, size_t backlog, size_t time
 
     /* Configure XNet to user-specified values. */
     err = xnet_configure(new_xnet);
+
+    /* Addrinfo no longer needed, regardless of return on 'xnet_configure()'. */
+    freeaddrinfo(new_xnet->network->result);
+
     if (0 != err) {
         err = E_SRV_FAIL_CREATE;
         xnet_destroy(new_xnet);
@@ -139,136 +129,51 @@ int xnet_start(xnet_box_t *xnet)
     printf("[XNet]\nIP: %s\nPort: %ld\n", xnet->general->ip, xnet->general->port);
     xnet->general->is_running = true;
 
-    /* Addrinfo no longer needed. */
-    freeaddrinfo(xnet->network->result);
-
     /* Initialize srand, used for session id generation. */
     srand(time(NULL));
 
     /* Setup initial state for epoll. */
-    struct epoll_event ep_events[XNET_EPOLL_MAX_EVENTS] = {0};
-    int epoll_fd = epoll_create1(0);
+    xnet->network->epoll_fd = epoll_create1(0);
 
     /* Create epoll event for XNet's listening socket. */
     struct epoll_event xnet_event = {0};
-    epoll_ctl_add(epoll_fd, &xnet_event, xnet->network->xnet_socket, EPOLLIN);
+    epoll_ctl_add(xnet->network->epoll_fd, &xnet_event, xnet->network->xnet_socket, EPOLLIN);
     set_non_blocking(xnet->network->xnet_socket);
 
-    /*---------------- Do signalfd stuff-------- */
-    sigset_t mask;
-    struct signalfd_siginfo fdsi;
+    /* Create dispositions for SIGINT and SIGQUIT. */
+    xnet_signal_disposition(xnet);
 
-    sigemptyset(&mask);
-    sigaddset(&mask, SIGINT);
-    sigaddset(&mask, SIGQUIT);
+    /* Apply default event functions if not overridden. */
+    if (NULL == xnet->general->on_connection_attempt) {
+        xnet->general->on_connection_attempt = xnet_default_on_connection_attempt;
+    }
+    if (NULL == xnet->general->on_terminate_signal) {
+        xnet->general->on_terminate_signal = xnet_default_on_terminate_signal;
+    }
+    if (NULL == xnet->general->on_client_send) {
+        xnet->general->on_client_send = xnet_default_on_client_send;
+    }
 
-    /* Modify signal's default dispositions */
-
-    if (sigprocmask(SIG_BLOCK, &mask, NULL) == -1)
-        puts("sigprocmask");
-
-    int sfd = signalfd(-1, &mask, 0);
-    if (sfd == -1)
-        puts("signalfd");
-
-    struct epoll_event sfd_event = {0};
-    epoll_ctl_add(epoll_fd, &sfd_event, sfd, EPOLLIN);
-    /*---------------------------------------------*/
-
-    /* XNet connection loop */
+    /* XNET CONNECTION LOOP */
     while (xnet->general->is_running) {
 
         /* Yield for next event. */
-        int event_count = epoll_wait(epoll_fd, ep_events, XNET_EPOLL_MAX_EVENTS, -1);
+        int event_count = epoll_wait(xnet->network->epoll_fd, xnet->network->ep_events, XNET_EPOLL_MAX_EVENTS, -1);
     
         for (int i = 0; i < event_count; i++) {
             /* If event triggers on listening socket, a connection is being attempted. */
-            if (xnet->network->xnet_socket == ep_events[i].data.fd) {
+            if (xnet->network->xnet_socket == xnet->network->ep_events[i].data.fd) {
+                xnet->general->on_connection_attempt(xnet);
 
-                /* Replace below code with function pointer for (on_connection_attempted) 
-                   This will allow either the default assigned XNet function to handle incoming connections,
-                   or allow the dev to override the function if desired.
-                */
-
-                /* Don't accept connections, if client count is maxxed. */
-                if (xnet->general->max_connections <= xnet->connections->connection_count) {
-                    /* Retry */
-                    continue;
-                }
-                
-                /* Attempt to accept connection. */
-                puts("Connection attempt...");
-                int client_socket = accept(xnet->network->xnet_socket, NULL, NULL);
-                if (-1 == client_socket) {
-                    fprintf(stderr, "Failed to accept client connection.\n");
-                    continue;
-                }
-                
-                /* Add client socket fd to epoll's event list. */
-                struct epoll_event client_event = {0};
-                int event_status = epoll_ctl_add(epoll_fd, &client_event, client_socket, EPOLLIN);
-                if (-1 == event_status) {
-                    fprintf(stderr, "Failed to add socket fd to epoll event. Dropping connection.\n");
-                    close(client_socket);
-                    continue;
-                }
-                
-                /* Create XNet connection for client. */
-                struct xnet_active_connection *new_client = xnet_create_connection(xnet, client_socket);
-                if (NULL == new_client) {
-                    fprintf(stderr, "Failed to create connection data. Dropping connection.\n");
-                    close(client_socket);
-                    continue;
-                }
-
-                xnet_debug_connections(xnet);
-
-            } else if (sfd == ep_events[i].data.fd) {
-                read(sfd, &fdsi, sizeof(struct signalfd_siginfo));
-
-                if (SIGINT == fdsi.ssi_signo || SIGQUIT == fdsi.ssi_signo) {
-                    int try_shut = xnet_shutdown(xnet);
-                    if (0 != try_shut) {
-                        fprintf(stderr, "Failed to shutdown.\n");
-                    }
-                }
+            /* If event triggers on signal fd, SIGINT or SIGQUIT were executed. */
+            } else if (xnet->network->signal_fd == xnet->network->ep_events[i].data.fd) {
+                xnet->general->on_terminate_signal(xnet);
+            
+            /* If event triggers on any other fd within the event array, a client is interacting with server. */
             } else {
-                // puts("Client sent something.");
-                // printf("Reading on file descriptor '%d'\n", ep_events[i].data.fd);
-
-                short current_op = xnet_get_opcode(xnet, ep_events[i].data.fd);
-                char packet_trash[XNET_MAX_PACKET_BUF_SZ] = {0};
-                ssize_t bytes_read = 0;
-
-                struct __attribute__((__packed__)) test_make_dir
-                {
-                    unsigned short length : 16;
-                    char msg[2048];
-                };
-
-                switch(current_op) // -- Obtained from first read call
-                {
-                    case FTP_CREATE_FILE:
-                        printf("Doing FTP Create File operation.\n");
-                        // Read into ftp_create_file struct
-                        break;
-                    case FTP_MAKE_DIR:
-                        printf("Doing FTP Make Dir operation.\n");
-                        // Read into ftp_make_dir struct
-                        struct test_make_dir mdir = {0};
-                        bytes_read = read(ep_events[i].data.fd, &mdir, sizeof(struct test_make_dir));
-                        printf("%d (%s)\n", ntohs(mdir.length), mdir.msg);
-                        break;
-                    default:
-                        /* Flushes buffer if op code is not recognized. */
-                        bytes_read = read(ep_events[i].data.fd, packet_trash, XNET_MAX_PACKET_BUF_SZ);
-                        while (0 < bytes_read) {
-                            bytes_read = read(ep_events[i].data.fd, packet_trash, XNET_MAX_PACKET_BUF_SZ);
-                        }
-                        break;
-                }
-
-                /* Thread off to do some client work. */
+                xnet_active_connection_t *me = xnet_get_conn_by_socket(xnet, xnet->network->ep_events[i].data.fd);
+                /* Pool worker should be calling this. */
+                xnet->general->on_client_send(xnet, me);
             }
         }
     }
@@ -471,4 +376,144 @@ static int xnet_configure(xnet_box_t *xnet)
 handle_err:
     g_show_err(err, "xnet_configure()");
     return err;
+}
+
+static int xnet_signal_disposition(xnet_box_t *xnet)
+{
+    int err = 0;
+
+    err = sigemptyset(&xnet->network->mask);
+    if (-1 == err) {
+        err = E_GEN_NON_ZERO;
+        goto handle_err;
+    }
+
+    err = sigaddset(&xnet->network->mask, SIGINT);
+    if (-1 == err) {
+        err = E_GEN_NON_ZERO;
+        goto handle_err;
+    }
+
+    err = sigaddset(&xnet->network->mask, SIGQUIT);
+    if (-1 == err) {
+        err = E_GEN_NON_ZERO;
+        goto handle_err;
+    }
+
+    /* Modify signal's default dispositions */
+    err = sigprocmask(SIG_BLOCK, &xnet->network->mask, NULL);
+    if (-1 == err) {
+        err = E_GEN_NON_ZERO;
+        goto handle_err;
+    }
+
+    xnet->network->signal_fd = signalfd(-1, &xnet->network->mask, 0);
+    if (-1 == xnet->network->signal_fd) {
+        err = E_GEN_NON_ZERO;
+        goto handle_err;
+    }
+
+    err = epoll_ctl_add(xnet->network->epoll_fd, &xnet->network->sfd_event, xnet->network->signal_fd, EPOLLIN);
+    if (-1 == err) {
+        err = E_GEN_NON_ZERO;
+        goto handle_err;
+    }
+
+    return 0;
+
+/* Unreachable unless error is triggered. */
+handle_err:
+    g_show_err(err, "xnet_signal_disposition()");
+    return err;
+}
+
+static void xnet_default_on_connection_attempt(xnet_box_t *xnet)
+{
+    /* Don't accept connections, if client count is maxxed. */
+    /* Needs to be refactored. */
+    if (xnet->general->max_connections <= xnet->connections->connection_count) {
+        /* Retry */
+        return;
+    }
+    
+    /* Attempt to accept connection. */
+    puts("Connection attempt being made...");
+    int client_socket = accept(xnet->network->xnet_socket, NULL, NULL);
+    if (-1 == client_socket) {
+        fprintf(stderr, "Failed to accept client connection.\n");
+        return;
+    }
+    
+    /* Create XNet connection for client. */
+    xnet_active_connection_t *new_client = xnet_create_connection(xnet, client_socket);
+    if (NULL == new_client) {
+        fprintf(stderr, "Failed to create connection data. Dropping connection.\n");
+        close(client_socket);
+        return;
+    }
+
+    /* Add client socket fd to epoll's event list. */
+    int event_status = epoll_ctl_add(xnet->network->epoll_fd, &new_client->client_event, client_socket, EPOLLIN);
+    if (-1 == event_status) {
+        fprintf(stderr, "Failed to add socket fd to epoll event. Dropping connection.\n");
+        close(client_socket);
+        return;
+    }
+
+    xnet_debug_connections(xnet);
+}
+
+static void xnet_default_on_terminate_signal(xnet_box_t *xnet)
+{
+    ssize_t bread = read(xnet->network->signal_fd, &xnet->network->fdsi, sizeof(struct signalfd_siginfo));
+    printf("%ld\n", bread);
+
+    if (SIGINT == xnet->network->fdsi.ssi_signo || SIGQUIT == xnet->network->fdsi.ssi_signo) {
+        int try_shut = xnet_shutdown(xnet);
+        if (0 != try_shut) {
+            fprintf(stderr, "Failed to shutdown.\n");
+        }
+    }
+}
+
+static void xnet_default_on_client_send(xnet_box_t *xnet, xnet_active_connection_t *me)
+{
+    short current_op = xnet_get_opcode(xnet, me->client_event.data.fd);
+    /* Check EOF */
+    if (0 == current_op) {
+        return;
+    }
+    char packet_trash[XNET_MAX_PACKET_BUF_SZ] = {0};
+    ssize_t bytes_read = 0;
+
+    struct __attribute__((__packed__)) test_make_dir
+    {
+        unsigned short length : 16;
+        char msg[2048];
+    };
+
+    switch(current_op) // -- Obtained from first read call
+    {
+        case FTP_CREATE_FILE:
+            printf("Doing FTP Create File operation.\n");
+            // Read into ftp_create_file struct
+            break;
+        case FTP_MAKE_DIR:
+            printf("Doing FTP Make Dir operation.\n");
+            // Read into ftp_make_dir struct
+            struct test_make_dir mdir = {0};
+            bytes_read = read(me->client_event.data.fd, &mdir, sizeof(struct test_make_dir));
+            printf("%d (%s)\n", ntohs(mdir.length), mdir.msg);
+            break;
+        default:
+            /* Flushes buffer if op code is not recognized. */
+            bytes_read = read(me->client_event.data.fd, packet_trash, XNET_MAX_PACKET_BUF_SZ);
+            while (0 < bytes_read) {
+                puts("oi");
+                bytes_read = read(me->client_event.data.fd, packet_trash, XNET_MAX_PACKET_BUF_SZ);
+            }
+            break;
+    }
+
+    return;
 }

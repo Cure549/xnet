@@ -26,7 +26,7 @@ xnet_session_is_valid(size_t session_id, user)
  * 
  * @return size_t Random session ID.
  */
-static size_t xnet_new_session(void);
+static int xnet_new_session(xnet_active_connection_t *client);
 
 int set_non_blocking(int sockfd)
 {
@@ -80,7 +80,6 @@ xnet_active_connection_t *xnet_get_conn_by_socket(xnet_box_t *xnet, int socket)
 
 	return needle;
 
-
 /* Unreachable unless error is triggered. */
 handle_err:
     g_show_err(err, "xnet_get_conn_by_socket()");
@@ -131,7 +130,7 @@ xnet_active_connection_t *xnet_create_connection(xnet_box_t *xnet, int socket)
 
 	new_client->active = true;
 	new_client->socket = socket;
-	new_client->session_id = xnet_new_session(); // TODO: Make this an actual session.
+	xnet_new_session(new_client);
 	xnet->connections->connection_count++;
 
 	return new_client;
@@ -157,9 +156,11 @@ int xnet_close_connection(xnet_box_t *xnet, xnet_active_connection_t *client)
 		goto handle_err;
 	}
 
-	client->active = false;
 	close(client->socket);
-	client->session_id = 0;
+	client->active = false;
+	client->session.id = 0;
+	client->session.start = 0;
+	memset(&client->client_event, 0, sizeof(struct epoll_event));
 	xnet->connections->connection_count--;
 
 	return 0;
@@ -187,7 +188,7 @@ void xnet_debug_connections(xnet_box_t *xnet)
 			printf("Index position: %ld\n", n);
 			printf("Active: %d\n", xnet->connections->clients[n].active);
 			printf("Socket: %d\n", xnet->connections->clients[n].socket);
-			printf("SessionID: %ld\n", xnet->connections->clients[n].session_id);
+			printf("Session: %d (%ld)\n", xnet->connections->clients[n].session.id, xnet->connections->clients[n].session.start);
 			printf("---------------\n");
 		}
 	}
@@ -197,8 +198,15 @@ void xnet_debug_connections(xnet_box_t *xnet)
 
 short xnet_get_opcode(xnet_box_t *xnet, int client_fd)
 {
-	short err = 0;
+	int err = 0;
 
+	/* NULL Check */
+	if (NULL == xnet) {
+		err = E_GEN_NULL_PTR;
+		goto handle_err;
+	}
+
+	/* Do a partial read on buffer. */
 	ssize_t bytes_read = read(client_fd, &err, sizeof(short));
 	
 	/* EOF Check for client disconnect. */
@@ -224,12 +232,14 @@ short xnet_get_opcode(xnet_box_t *xnet, int client_fd)
 	/* Unreachable unless error is triggered. */
 handle_err:
     g_show_err(err, "xnet_get_opcode()");
+	err = 0;
     return err;
 }
 
-static size_t xnet_new_session(void)
+static int xnet_new_session(xnet_active_connection_t *client)
 {
-	int new_session = rand() / 100;
+	client->session.id = rand() / 100;
+	client->session.start = time(0);
 
-	return (size_t)new_session;
+	return 0;
 }
