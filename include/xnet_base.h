@@ -23,6 +23,7 @@ extern "C" {
 #include <sys/epoll.h>
 #include <sys/signalfd.h>
 #include <sys/timerfd.h>
+#include <sys/timerfd.h>
 #include <arpa/inet.h>
 #include <netdb.h>
 #include <string.h>
@@ -40,11 +41,11 @@ extern "C" {
 
 #define XNET_MAX_CONNECTIONS_DEFAULT 5
 
-#define XNET_BACKLOG_MAX             128
 #define XNET_BACKLOG_DEFAULT         128
+#define XNET_BACKLOG_MAX             128
 
-#define XNET_TIMEOUT_DEFAULT         3600
-#define XNET_TIMEOUT_MAX             7200
+#define XNET_TIMEOUT_DEFAULT         3600 // In seconds
+#define XNET_TIMEOUT_MAX             7200 // In seconds
 
 #define XNET_EPOLL_MAX_EVENTS        10
 
@@ -62,12 +63,17 @@ typedef struct xnet_box {
 
 typedef struct xnet_user_session {
     int id;
-    time_t start;
+    int timer_fd;
+    struct epoll_event session_event;
+    struct itimerspec t_content;
+    struct timespec t_data;
 } xnet_user_session_t ;
 
 typedef struct xnet_active_connection {
-    /* State of client, if false, connection object lacks a client. */
-    bool active;
+    /* State of connection object, if false, connection object lacks a client. */
+    bool is_active;
+    /* State of client, are they in the middle of an action? */
+    bool is_working;
     int socket;
     struct epoll_event client_event;
     // Userbase entry here...

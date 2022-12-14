@@ -19,8 +19,6 @@ static xnet_box_t *initialize_xnet_box(void);
  */
 static int xnet_configure(xnet_box_t *xnet);
 
-static int epoll_ctl_add(int epoll_fd, struct epoll_event *an_event, int fd, uint32_t event_list);
-
 static void xnet_default_on_connection_attempt(xnet_box_t *xnet);
 
 static void xnet_default_on_terminate_signal(xnet_box_t *xnet);
@@ -161,19 +159,35 @@ int xnet_start(xnet_box_t *xnet)
         int event_count = epoll_wait(xnet->network->epoll_fd, xnet->network->ep_events, XNET_EPOLL_MAX_EVENTS, -1);
     
         for (int i = 0; i < event_count; i++) {
+            int current_event = xnet->network->ep_events[i].data.fd;
+
             /* If event triggers on listening socket, a connection is being attempted. */
-            if (xnet->network->xnet_socket == xnet->network->ep_events[i].data.fd) {
+            if (xnet->network->xnet_socket == current_event) {
                 xnet->general->on_connection_attempt(xnet);
 
             /* If event triggers on signal fd, SIGINT or SIGQUIT were executed. */
-            } else if (xnet->network->signal_fd == xnet->network->ep_events[i].data.fd) {
+            } else if (xnet->network->signal_fd == current_event) {
                 xnet->general->on_terminate_signal(xnet);
-            
-            /* If event triggers on any other fd within the event array, a client is interacting with server. */
-            } else {
-                xnet_active_connection_t *me = xnet_get_conn_by_socket(xnet, xnet->network->ep_events[i].data.fd);
+
+            /* If event triggers and was matched to a client socket, we are working with a client request. */
+            } else if (NULL != xnet_get_conn_by_socket(xnet, current_event)) {
+                xnet_active_connection_t *noisy_client = xnet_get_conn_by_socket(xnet, current_event);
+
                 /* Pool worker should be calling this. */
-                xnet->general->on_client_send(xnet, me);
+                noisy_client->is_working = true;
+                xnet->general->on_client_send(xnet, noisy_client);
+                noisy_client->is_working = false;
+
+            /* If event triggers on any other fd within the event array, it is a session's fd. */
+            } else {
+                // !! Need to somehow have a correlation between client socket and session fd.
+                // Create an overridable event for session expiring.
+                xnet_active_connection_t *expired_client = xnet_get_conn_by_session(xnet, current_event);
+                char temp[8] = {0};
+                read(current_event, temp, sizeof(temp));
+                printf("client correlated to [%d] timerfd, should be dropped: %s\n", current_event, temp);
+                xnet_close_connection(xnet, expired_client);
+                xnet_debug_connections(xnet);
             }
         }
     }
@@ -231,19 +245,6 @@ int xnet_destroy(xnet_box_t *xnet)
 handle_err:
     g_show_err(err, "xnet_destroy()");
     return err;
-}
-
-static int epoll_ctl_add(int epoll_fd, struct epoll_event *an_event, int fd, uint32_t event_list)
-{
-    if (NULL == an_event) {
-        fprintf(stderr, "No event given.\n");
-        return -1;
-    }
-
-    an_event->events = event_list;
-    an_event->data.fd = fd;
-    int result = epoll_ctl(epoll_fd, EPOLL_CTL_ADD, fd, an_event);
-    return result;
 }
 
 static xnet_box_t *initialize_xnet_box(void)
@@ -466,7 +467,7 @@ static void xnet_default_on_connection_attempt(xnet_box_t *xnet)
 static void xnet_default_on_terminate_signal(xnet_box_t *xnet)
 {
     ssize_t bread = read(xnet->network->signal_fd, &xnet->network->fdsi, sizeof(struct signalfd_siginfo));
-    printf("%ld\n", bread);
+    (void)bread; // To suppress errors, will use read length later in development.
 
     if (SIGINT == xnet->network->fdsi.ssi_signo || SIGQUIT == xnet->network->fdsi.ssi_signo) {
         int try_shut = xnet_shutdown(xnet);
@@ -509,7 +510,6 @@ static void xnet_default_on_client_send(xnet_box_t *xnet, xnet_active_connection
             /* Flushes buffer if op code is not recognized. */
             bytes_read = read(me->client_event.data.fd, packet_trash, XNET_MAX_PACKET_BUF_SZ);
             while (0 < bytes_read) {
-                puts("oi");
                 bytes_read = read(me->client_event.data.fd, packet_trash, XNET_MAX_PACKET_BUF_SZ);
             }
             break;
