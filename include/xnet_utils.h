@@ -56,7 +56,7 @@ xnet_active_connection_t *xnet_get_conn_by_socket(xnet_box_t *xnet, int socket);
 xnet_active_connection_t *xnet_create_connection(xnet_box_t *xnet, int socket);
 
 /**
- * @brief Closes a connection gracefully. Handles closing socket along with session.
+ * @brief Closes a connection gracefully. Handles closing client socket along with their session.
  * 
  * @param xnet 
  * @param client 

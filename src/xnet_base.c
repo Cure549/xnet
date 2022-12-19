@@ -180,12 +180,11 @@ int xnet_start(xnet_box_t *xnet)
 
             /* If event triggers on any other fd within the event array, it is a session's fd. */
             } else {
-                // !! Need to somehow have a correlation between client socket and session fd.
                 // Create an overridable event for session expiring.
                 xnet_active_connection_t *expired_client = xnet_get_conn_by_session(xnet, current_event);
                 char temp[8] = {0};
                 read(current_event, temp, sizeof(temp));
-                printf("client correlated to [%d] timerfd, should be dropped: %s\n", current_event, temp);
+                printf("client correlated to [%d] timerfd, being dropped: %s\n", current_event, temp);
                 xnet_close_connection(xnet, expired_client);
                 xnet_debug_connections(xnet);
             }

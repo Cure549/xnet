@@ -310,8 +310,21 @@ int epoll_ctl_add(int epoll_fd, struct epoll_event *an_event, int fd, uint32_t e
 
 static int xnet_new_session(xnet_active_connection_t *client)
 {
+	int err = 0;
+
+	if (NULL == client) {
+		err = E_GEN_NULL_PTR;
+		goto handle_err;
+	}
+
 	client->session.id = rand() / 100;
+	
 	return 0;
+
+		/* Unreachable unless error is triggered. */
+handle_err:
+    g_show_err(err, "xnet_new_session()");
+    return err;
 }
 
 static int xnet_begin_session(xnet_box_t *xnet, xnet_active_connection_t *client)

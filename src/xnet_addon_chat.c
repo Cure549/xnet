@@ -1,20 +1,16 @@
+#include "xnet_addon_chat.h"
 /* 
 Contains all necessary structs and functions related to adding chat server capabilities to a xnet server. 
-
-addon identifier:
-    #define XNET_CHAT_ID 300
-
-operation enum values:
-    create file: 201
-    make directory: 202
-    search directory: 203
-    get file: 204
-    put file: 205
-    delete file: 206
-
-customization:
-    use_sessions = true;
-    use_userbase = true;
-    use_permissions = true;
 */
-typedef int make_iso_compilers_happy;
+
+int xnet_integrate_chat_addon(xnet_box_t *xnet)
+{
+    // Example of what needs to be done:
+    // hashmap_insert(xnet->addon_hashmap, 201, chat_perform_send_msg);
+    // hashmap_insert(xnet->addon_hashmap, 202, chat_perform_join_room);
+    // hashmap_insert(xnet->addon_hashmap, 203, chat_perform_leave_room);
+    // hashmap_insert(xnet->addon_hashmap, 204, chat_perform_show_rooms);
+
+    (void) xnet;
+    return 3;
+}
