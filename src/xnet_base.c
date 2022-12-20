@@ -492,6 +492,12 @@ static void xnet_default_on_client_send(xnet_box_t *xnet, xnet_active_connection
         char msg[2048];
     };
 
+    /*  When 'opcode : func ptr' hashmap is developed,
+        'current_op' should be matched against the hashmap.
+        If a result is found, call that function, else drop packet.
+        Switch-case below can be removed entirely after implementation.
+    */
+
     switch(current_op) // -- Obtained from first read call
     {
         case FTP_CREATE_FILE:

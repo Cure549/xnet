@@ -18,17 +18,17 @@ extern "C" {
 #include "xnet_base.h"
 #include "xnet_utils.h"
 
-struct chat_send_msg_tc {
+struct __attribute__((__packed__)) chat_send_msg_tc {
     int opcode;
     char msg[2048];
 };
 
-struct chat_send_msg_fc {
+struct __attribute__((__packed__)) chat_send_msg_fc {
     int opcode;
     char msg[2048];
 };
 
-typedef struct chat_send_msg_root {
+typedef struct __attribute__((__packed__)) chat_send_msg_root {
     struct chat_send_msg_tc to_client;
     struct chat_send_msg_fc from_client;
 } chat_send_msg_root_t ;
