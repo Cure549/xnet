@@ -308,6 +308,76 @@ int epoll_ctl_add(int epoll_fd, struct epoll_event *an_event, int fd, uint32_t e
     return result;
 }
 
+int xnet_insert_feature(xnet_box_t *xnet, size_t opcode, int (*new_perform)(xnet_box_t *xnet, xnet_active_connection_t *client))
+{
+	int err = -1;
+
+	/* NULL Check */
+	if (NULL == xnet) {
+		err = E_GEN_NULL_PTR;
+		goto handle_err;
+	}
+
+	if (NULL == new_perform) {
+		err = E_GEN_NULL_PTR;
+		goto handle_err;
+	}
+
+	/* Is opcode within range? */
+	if (XNET_MAX_FEATURES <= opcode) {
+		err = E_GEN_OUT_RANGE;
+		goto handle_err;
+	}
+
+	/* Loop until an available slot is found. */
+	for (size_t n = 0; n < XNET_MAX_FEATURES; n++) {
+		if (NULL == xnet->general->perform[n]) {
+			xnet->general->perform[n] = new_perform;
+			err = 0;
+		}
+	}
+
+	return err;
+
+	/* Unreachable unless error is triggered. */
+handle_err:
+    g_show_err(err, "xnet_insert_feature()");
+    return err;
+}
+
+int xnet_blacklist_feature(xnet_box_t *xnet, size_t opcode)
+{
+	int err = 0;
+
+	/* NULL Check */
+	if (NULL == xnet) {
+		err = E_GEN_NULL_PTR;
+		goto handle_err;
+	}
+
+	/* Is opcode within range? */
+	if (XNET_MAX_FEATURES <= opcode) {
+		err = E_GEN_OUT_RANGE;
+		goto handle_err;
+	}
+
+	/* If feature doesn't exist, notify return value. */
+	if (NULL == xnet->general->perform[opcode]) {
+		err = E_GEN_NULL_PTR;
+		goto handle_err;
+	}
+
+	/* Remove support for feature. */
+	xnet->general->perform[opcode] = NULL;
+	return 0;
+
+
+	/* Unreachable unless error is triggered. */
+handle_err:
+    g_show_err(err, "xnet_blacklist_feature()");
+    return err;
+}
+
 static int xnet_new_session(xnet_active_connection_t *client)
 {
 	int err = 0;
@@ -321,7 +391,7 @@ static int xnet_new_session(xnet_active_connection_t *client)
 	
 	return 0;
 
-		/* Unreachable unless error is triggered. */
+	/* Unreachable unless error is triggered. */
 handle_err:
     g_show_err(err, "xnet_new_session()");
     return err;

@@ -19,12 +19,12 @@ extern "C" {
 #include "xnet_utils.h"
 
 struct __attribute__((__packed__)) chat_send_msg_tc {
-    int opcode;
+    int length;
     char msg[2048];
 };
 
 struct __attribute__((__packed__)) chat_send_msg_fc {
-    int opcode;
+    int length;
     char msg[2048];
 };
 

@@ -173,7 +173,7 @@ int xnet_start(xnet_box_t *xnet)
             } else if (NULL != xnet_get_conn_by_socket(xnet, current_event)) {
                 xnet_active_connection_t *noisy_client = xnet_get_conn_by_socket(xnet, current_event);
 
-                /* Pool worker should be calling this. */
+                /* Pool worker should be calling 'on_client_send'. */
                 noisy_client->is_working = true;
                 xnet->general->on_client_send(xnet, noisy_client);
                 noisy_client->is_working = false;
@@ -483,41 +483,17 @@ static void xnet_default_on_client_send(xnet_box_t *xnet, xnet_active_connection
     if (0 == current_op) {
         return;
     }
+
+    /* If opcode is supported, call requested feature's function. */
+    if (NULL != xnet->general->perform[current_op]) {
+        xnet->general->perform[current_op] (xnet, me);
+    }
+
+    /* Flush out any remaining data in buffer. This naturally flushes any unsupported opcode. */
     char packet_trash[XNET_MAX_PACKET_BUF_SZ] = {0};
-    ssize_t bytes_read = 0;
-
-    struct __attribute__((__packed__)) test_make_dir
-    {
-        unsigned short length : 16;
-        char msg[2048];
-    };
-
-    /*  When 'opcode : func ptr' hashmap is developed,
-        'current_op' should be matched against the hashmap.
-        If a result is found, call that function, else drop packet.
-        Switch-case below can be removed entirely after implementation.
-    */
-
-    switch(current_op) // -- Obtained from first read call
-    {
-        case FTP_CREATE_FILE:
-            printf("Doing FTP Create File operation.\n");
-            // Read into ftp_create_file struct
-            break;
-        case FTP_MAKE_DIR:
-            printf("Doing FTP Make Dir operation.\n");
-            // Read into ftp_make_dir struct
-            struct test_make_dir mdir = {0};
-            bytes_read = read(me->client_event.data.fd, &mdir, sizeof(struct test_make_dir));
-            printf("%d (%s)\n", ntohs(mdir.length), mdir.msg);
-            break;
-        default:
-            /* Flushes buffer if op code is not recognized. */
-            bytes_read = read(me->client_event.data.fd, packet_trash, XNET_MAX_PACKET_BUF_SZ);
-            while (0 < bytes_read) {
-                bytes_read = read(me->client_event.data.fd, packet_trash, XNET_MAX_PACKET_BUF_SZ);
-            }
-            break;
+    ssize_t bytes_read = read(me->client_event.data.fd, packet_trash, XNET_MAX_PACKET_BUF_SZ);
+    while (0 < bytes_read) {
+        bytes_read = read(me->client_event.data.fd, packet_trash, XNET_MAX_PACKET_BUF_SZ);
     }
 
     return;

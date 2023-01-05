@@ -5,12 +5,15 @@ Contains all necessary structs and functions related to adding chat server capab
 
 int xnet_integrate_chat_addon(xnet_box_t *xnet)
 {
-    // Example of what needs to be done:
-    // hashmap_insert(xnet->addon_hashmap, 201, chat_perform_send_msg);
-    // hashmap_insert(xnet->addon_hashmap, 202, chat_perform_join_room);
-    // hashmap_insert(xnet->addon_hashmap, 203, chat_perform_leave_room);
-    // hashmap_insert(xnet->addon_hashmap, 204, chat_perform_show_rooms);
+    xnet_insert_feature(xnet, 201, chat_perform_send_msg);
+    return 0;
+}
 
-    (void) xnet;
-    return 3;
+int chat_perform_send_msg(xnet_box_t *xnet, xnet_active_connection_t *client)
+{
+    (void)xnet;
+    chat_send_msg_root_t packet_root = {0};
+    read(client->client_event.data.fd, &packet_root.from_client, sizeof(packet_root.from_client));
+    printf("%d (%s)\n", ntohl(packet_root.from_client.length), packet_root.from_client.msg);
+    return 0;
 }

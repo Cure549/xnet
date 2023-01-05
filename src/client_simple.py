@@ -12,7 +12,7 @@ class MsgProto:
     msg: str
     
     def construct(self):
-        packet = struct.pack(f'!HH{len(self.msg)}s', self.opcode, len(self.msg), self.msg.encode('utf-8'))
+        packet = struct.pack(f'!Hi{len(self.msg)}s', self.opcode, len(self.msg), self.msg.encode('utf-8'))
         return packet
 
 host = "127.0.0.1"  # The server's hostname or IP address
@@ -26,5 +26,5 @@ while True:
     if do_what == "connect":
         socket.connect((host, port))
     else:
-        data = MsgProto(101, do_what)
+        data = MsgProto(201, do_what)
         socket.sendall(data.construct())
