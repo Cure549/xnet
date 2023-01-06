@@ -1,7 +1,7 @@
 /**
  * @file        xnet_base.h
  * @author      Kameryn Gaige Knight
- * @brief       Base library that supports the creation of a XNet server.
+ * @brief       Base library that supports the creation and operation of a XNet server.
  * @version     1.0
  * @date        2022-10-06
  * 
@@ -89,7 +89,7 @@ typedef struct xnet_general_group {
     void (*on_connection_attempt)(xnet_box_t *xnet);
     void (*on_terminate_signal)(xnet_box_t *xnet);
     void (*on_client_send)(xnet_box_t *xnet, xnet_active_connection_t *me);
-    int (*perform[XNET_MAX_FEATURES])(xnet_box_t *xnet, xnet_active_connection_t *client);
+    int  (*perform[XNET_MAX_FEATURES])(xnet_box_t *xnet, xnet_active_connection_t *client);
 } xnet_general_group_t ;
 
 typedef struct xnet_network_group {

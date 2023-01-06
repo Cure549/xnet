@@ -498,13 +498,15 @@ static void xnet_default_on_client_send(xnet_box_t *xnet, xnet_active_connection
     /* Ensure received opcode does not exceed feature max. */
     if (XNET_MAX_FEATURES <= current_op) {
         flush_buffer(me->client_event.data.fd);
-        printf("Unsupported feature with opcode [%d] detected. Ignoring request.\n", current_op);
+        fprintf(stderr, "Invalid opcode [%d] detected. Ignoring request.\n", current_op);
         return;
     }
 
     /* If opcode is supported, call requested feature's function. */
     if (NULL != xnet->general->perform[current_op]) {
         xnet->general->perform[current_op] (xnet, me);
+    } else {
+        fprintf(stderr, "Unsupported opcode [%d] detected. Ignoring request.\n", current_op);
     }
 
     /* Flush out any remaining data in buffer. This naturally flushes any unsupported opcode. */
