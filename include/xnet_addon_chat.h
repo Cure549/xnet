@@ -42,7 +42,16 @@ typedef struct __attribute__((__packed__)) chat_send_msg_root {
  */
 int xnet_integrate_chat_addon(xnet_box_t *xnet);
 
+/**
+ * @brief Feature that supports client-to-client communication.
+ * 
+ * @param xnet 
+ * @param client 
+ * @return int 
+ */
 int chat_perform_send_msg(xnet_box_t *xnet, xnet_active_connection_t *client);
+
+int chat_perform_join_room(xnet_box_t *xnet, xnet_active_connection_t *client);
 
 #ifdef __cplusplus
 }

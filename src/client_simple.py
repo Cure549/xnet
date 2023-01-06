@@ -18,7 +18,6 @@ class MsgProto:
 host = "127.0.0.1"  # The server's hostname or IP address
 port = 47007  # The port used by the server
 socket = socket.socket(socket.AF_INET, socket.SOCK_STREAM)
-# data = MsgProto(101, "jello")
 
 while True:
     do_what = input("command > ")

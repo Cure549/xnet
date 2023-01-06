@@ -1,7 +1,12 @@
 #include "xnet_base.h"
 #include "xnet_utils.h"
 
-/* Contains all necessary functions and structs related to a base xnet server */
+/**
+ * @brief Contains XNet's event listening loop.
+ * 
+ * @param xnet 
+ */
+static void xnet_listen_loop(xnet_box_t *xnet);
 
 /**
  * @brief Static function that's responsible for allocating all necessary memory in a xnet_box_t.
@@ -153,43 +158,7 @@ int xnet_start(xnet_box_t *xnet)
     }
 
     /* XNET CONNECTION LOOP */
-    while (xnet->general->is_running) {
-
-        /* Yield for next event. */
-        int event_count = epoll_wait(xnet->network->epoll_fd, xnet->network->ep_events, XNET_EPOLL_MAX_EVENTS, -1);
-    
-        for (int i = 0; i < event_count; i++) {
-            int current_event = xnet->network->ep_events[i].data.fd;
-
-            /* If event triggers on listening socket, a connection is being attempted. */
-            if (xnet->network->xnet_socket == current_event) {
-                xnet->general->on_connection_attempt(xnet);
-
-            /* If event triggers on signal fd, SIGINT or SIGQUIT were executed. */
-            } else if (xnet->network->signal_fd == current_event) {
-                xnet->general->on_terminate_signal(xnet);
-
-            /* If event triggers and was matched to a client socket, we are working with a client request. */
-            } else if (NULL != xnet_get_conn_by_socket(xnet, current_event)) {
-                xnet_active_connection_t *noisy_client = xnet_get_conn_by_socket(xnet, current_event);
-
-                /* Pool worker should be calling 'on_client_send'. */
-                noisy_client->is_working = true;
-                xnet->general->on_client_send(xnet, noisy_client);
-                noisy_client->is_working = false;
-
-            /* If event triggers on any other fd within the event array, it is a session's fd. */
-            } else {
-                // Create an overridable event for session expiring.
-                xnet_active_connection_t *expired_client = xnet_get_conn_by_session(xnet, current_event);
-                char temp[8] = {0};
-                read(current_event, temp, sizeof(temp));
-                printf("client correlated to [%d] timerfd, being dropped: %s\n", current_event, temp);
-                xnet_close_connection(xnet, expired_client);
-                xnet_debug_connections(xnet);
-            }
-        }
-    }
+    xnet_listen_loop(xnet);
 
     return 0;
 
@@ -246,6 +215,47 @@ handle_err:
     return err;
 }
 
+static void xnet_listen_loop(xnet_box_t *xnet)
+{
+    /* XNET CONNECTION LOOP */
+    while (xnet->general->is_running) {
+
+        /* Yield for next event. */
+        int event_count = epoll_wait(xnet->network->epoll_fd, xnet->network->ep_events, XNET_EPOLL_MAX_EVENTS, -1);
+    
+        for (int i = 0; i < event_count; i++) {
+            int current_event = xnet->network->ep_events[i].data.fd;
+
+            /* If event triggers on listening socket, a connection is being attempted. */
+            if (xnet->network->xnet_socket == current_event) {
+                xnet->general->on_connection_attempt(xnet);
+
+            /* If event triggers on signal fd, SIGINT or SIGQUIT were executed. */
+            } else if (xnet->network->signal_fd == current_event) {
+                xnet->general->on_terminate_signal(xnet);
+
+            /* If event triggers and was matched to a client socket, we are working with a client request. */
+            } else if (NULL != xnet_get_conn_by_socket(xnet, current_event)) {
+                xnet_active_connection_t *noisy_client = xnet_get_conn_by_socket(xnet, current_event);
+
+                /* Pool worker should be calling 'on_client_send'. */
+                noisy_client->is_working = true;
+                xnet->general->on_client_send(xnet, noisy_client);
+                noisy_client->is_working = false;
+
+            /* If event triggers on any other fd within the event array, it is a session's fd. */
+            } else {
+                // Create an overridable event for session expiring.
+                // Example: xnet->general->on_session_expire(xnet);
+                xnet_active_connection_t *expired_client = xnet_get_conn_by_session(xnet, current_event);
+                flush_buffer(current_event);
+                xnet_close_connection(xnet, expired_client);
+                xnet_debug_connections(xnet);
+            }
+        }
+    }
+}
+
 static xnet_box_t *initialize_xnet_box(void)
 {
     int err = 0;
@@ -291,6 +301,7 @@ static xnet_box_t *initialize_xnet_box(void)
 /* Unreachable unless error is triggered. */
 handle_err:
     g_show_err(err, "initialize_xnet_box()");
+    nfree((void **)&new_xnet->connections);
     nfree((void **)&new_xnet->thread);
     nfree((void **)&new_xnet->network);
     nfree((void **)&new_xnet->general);
@@ -484,17 +495,20 @@ static void xnet_default_on_client_send(xnet_box_t *xnet, xnet_active_connection
         return;
     }
 
+    /* Ensure received opcode does not exceed feature max. */
+    if (XNET_MAX_FEATURES <= current_op) {
+        flush_buffer(me->client_event.data.fd);
+        printf("Unsupported feature with opcode [%d] detected. Ignoring request.\n", current_op);
+        return;
+    }
+
     /* If opcode is supported, call requested feature's function. */
     if (NULL != xnet->general->perform[current_op]) {
         xnet->general->perform[current_op] (xnet, me);
     }
 
     /* Flush out any remaining data in buffer. This naturally flushes any unsupported opcode. */
-    char packet_trash[XNET_MAX_PACKET_BUF_SZ] = {0};
-    ssize_t bytes_read = read(me->client_event.data.fd, packet_trash, XNET_MAX_PACKET_BUF_SZ);
-    while (0 < bytes_read) {
-        bytes_read = read(me->client_event.data.fd, packet_trash, XNET_MAX_PACKET_BUF_SZ);
-    }
-
+    flush_buffer(me->client_event.data.fd);
+    
     return;
 }
