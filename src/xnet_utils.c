@@ -4,36 +4,24 @@
 /* 
 Any general utilities associated with aiding in server configuration and customization.
 
-// Informs xnet server which operations from an addon should be allowed/are supported.
-xnet_add_op_to_whitelist(server *, operation enum value);
-
-// Informs xnet server of a specific addon to include in its suite of options.
-xnet_give_addon(server *, XNET_FTP_ID);
-
-// Generates a random session id, and returns it.
-xnet_session_new(void);
-
-// Should be used in client work, tells server when to begin session timeout for a client.
-xnet_session_begin();
-
 // Compares a given session id, to a active user's session id.
 xnet_session_is_valid(size_t session_id, user)
 
 */
 
 /**
- * @brief Responsible for generating a random session ID.
+ * @brief Generates and assigned a new session ID to an active connection.
  * 
- * @return size_t Random session ID.
+ * @return int 0 on success, non-zero on failure.
  */
 static int xnet_new_session(xnet_active_connection_t *client);
 
 /**
  * @brief Begins a sessions timeout timer.
  * 
- * @param xnet 
- * @param client 
- * @return int 
+ * @param xnet Pointer to an XNet server.
+ * @param client Pointer to an active connection.
+ * @return int 0 on success, non-zero on failure.
  */
 static int xnet_begin_session(xnet_box_t *xnet, xnet_active_connection_t *client);
 
@@ -329,12 +317,11 @@ int xnet_insert_feature(xnet_box_t *xnet, size_t opcode, int (*new_perform)(xnet
 		goto handle_err;
 	}
 
-	/* Loop until an available slot is found. */
-	for (size_t n = 0; n < XNET_MAX_FEATURES; n++) {
-		if (NULL == xnet->general->perform[n]) {
-			xnet->general->perform[n] = new_perform;
-			err = 0;
-		}
+	/* Check if opcode is in use to avoid collisions. */
+	if (NULL == xnet->general->perform[opcode]) {
+		/* Associate valid opcode with addon function. */
+		xnet->general->perform[opcode] = new_perform;
+		err = 0;
 	}
 
 	return err;
@@ -370,7 +357,6 @@ int xnet_blacklist_feature(xnet_box_t *xnet, size_t opcode)
 	/* Remove support for feature. */
 	xnet->general->perform[opcode] = NULL;
 	return 0;
-
 
 	/* Unreachable unless error is triggered. */
 handle_err:
@@ -414,4 +400,13 @@ static int xnet_begin_session(xnet_box_t *xnet, xnet_active_connection_t *client
 handle_err:
     g_show_err(err, "xnet_begin_session()");
     return err;
+}
+
+void flush_buffer(int fd)
+{
+	char packet_trash[XNET_MAX_PACKET_BUF_SZ] = {0};
+    ssize_t bytes_read = read(fd, packet_trash, XNET_MAX_PACKET_BUF_SZ);
+    while (0 < bytes_read) {
+        bytes_read = read(fd, packet_trash, XNET_MAX_PACKET_BUF_SZ);
+    }
 }

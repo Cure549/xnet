@@ -67,6 +67,8 @@ int xnet_insert_feature(xnet_box_t *xnet, size_t opcode, int (*new_perform)(xnet
 
 int xnet_blacklist_feature(xnet_box_t *xnet, size_t opcode);
 
+void flush_buffer(int fd);
+
 #ifdef __cplusplus
 }
 #endif

@@ -57,9 +57,7 @@ typedef struct xnet_box {
     struct xnet_network_group *network;
     struct xnet_thread_group *thread;
     struct xnet_connection_group *connections;
-    struct xnet_userbase_group *m_userbase;
-    struct xnet_addon_chat *m_chat;
-    struct xnet_addon_ftp *m_ftp;
+    struct xnet_userbase_group *userbase;
 } xnet_box_t ; 
 
 typedef struct xnet_user_session {
@@ -92,7 +90,6 @@ typedef struct xnet_general_group {
     void (*on_terminate_signal)(xnet_box_t *xnet);
     void (*on_client_send)(xnet_box_t *xnet, xnet_active_connection_t *me);
     int (*perform[XNET_MAX_FEATURES])(xnet_box_t *xnet, xnet_active_connection_t *client);
-    // To call a perform -- perform[idx](xnet, client) ; idx being an opcode
 } xnet_general_group_t ;
 
 typedef struct xnet_network_group {
