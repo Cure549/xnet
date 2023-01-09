@@ -25,6 +25,7 @@ int chat_perform_join_room(xnet_box_t *xnet, xnet_active_connection_t *client)
     (void)xnet;
     (void)client;
     puts("join room");
+    
     return 0;
 }
 

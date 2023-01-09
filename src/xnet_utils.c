@@ -166,11 +166,6 @@ xnet_active_connection_t *xnet_create_connection(xnet_box_t *xnet, int socket)
 		goto handle_err;
 	}
 
-	size_t interval = xnet->general->connection_timeout;
-
-	new_client->session.t_content.it_value.tv_sec = new_client->session.t_data.tv_sec + interval;
-	new_client->session.t_content.it_interval.tv_sec = interval;
-
 	xnet_begin_session(xnet, new_client);
 
 	new_client->is_active = true;
@@ -386,6 +381,10 @@ handle_err:
 static int xnet_begin_session(xnet_box_t *xnet, xnet_active_connection_t *client)
 {
 	int err = 0;
+
+	size_t interval = xnet->general->connection_timeout;
+	client->session.t_content.it_value.tv_sec = client->session.t_data.tv_sec + interval;
+	client->session.t_content.it_interval.tv_sec = interval;
 
 	err = timerfd_settime(client->session.timer_fd, TFD_TIMER_ABSTIME, &client->session.t_content, NULL);
 	if (0 != err) {

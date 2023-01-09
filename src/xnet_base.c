@@ -2,7 +2,7 @@
 #include "xnet_utils.h"
 
 /**
- * @brief Contains XNet's event listening loop.
+ * @brief Static function that contains XNet's event listening loop.
  * 
  * @param xnet 
  */
@@ -238,7 +238,12 @@ static void xnet_listen_loop(xnet_box_t *xnet)
             } else if (NULL != xnet_get_conn_by_socket(xnet, current_event)) {
                 xnet_active_connection_t *noisy_client = xnet_get_conn_by_socket(xnet, current_event);
 
-                /* Pool worker should be calling 'on_client_send'. */
+                /* Pool worker should be calling 'on_client_send'.
+                   'is_working' should be set to true within this function.
+                   The threadpool worker should immedietly set 'is_working' to false when it is done.
+                   This is to allow the server's main thread to keep rolling through.
+                   A session ending should not in any way, disrupt an action mid-way through.
+                */
                 noisy_client->is_working = true;
                 xnet->general->on_client_send(xnet, noisy_client);
                 noisy_client->is_working = false;
@@ -248,9 +253,13 @@ static void xnet_listen_loop(xnet_box_t *xnet)
                 // Create an overridable event for session expiring.
                 // Example: xnet->general->on_session_expire(xnet);
                 xnet_active_connection_t *expired_client = xnet_get_conn_by_session(xnet, current_event);
-                flush_buffer(current_event);
-                xnet_close_connection(xnet, expired_client);
-                xnet_debug_connections(xnet);
+
+                /* Ensure the client is not working before closing a connection. */
+                if (false == expired_client->is_working) {
+                    flush_buffer(current_event);
+                    xnet_close_connection(xnet, expired_client);
+                    xnet_debug_connections(xnet);
+                }
             }
         }
     }
@@ -365,7 +374,7 @@ static int xnet_configure(xnet_box_t *xnet)
         goto handle_err;
     }
 
-    /* Bind name to socket */
+    /* Bind to socket */
     err = bind(xnet->network->xnet_socket,
                xnet->network->result->ai_addr,
                xnet->network->result->ai_addrlen);
