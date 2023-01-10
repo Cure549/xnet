@@ -25,5 +25,5 @@ while True:
     if do_what == "connect":
         socket.connect((host, port))
     else:
-        data = MsgProto(202, do_what)
+        data = MsgProto(201, do_what)
         socket.sendall(data.construct())

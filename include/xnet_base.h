@@ -48,7 +48,7 @@ extern "C" {
 #define XNET_TIMEOUT_MAX             7200 // In seconds
 
 #define XNET_EPOLL_MAX_EVENTS        10
-#define XNET_MAX_FEATURES            1000
+#define XNET_MAX_FEATURES            4096
 
 #define XNET_MAX_PACKET_BUF_SZ       8192
 
