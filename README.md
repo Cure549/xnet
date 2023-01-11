@@ -227,7 +227,7 @@ int my_custom_addon_perform_action1(xnet_box_t *xnet, xnet_active_connection_t *
 	return 0;
 }
 ```
-> **Note:** Notice how use `xnet_insert_feature()` to inform XNet of the association between opcode and function.
+> **Note:** Notice how we use `xnet_insert_feature()` to inform XNet of the association between opcode and function.
 
 ## Main Server File
 Now that the addon is completed. We need to inform XNet to integrate it. By remembering the load process, it should be fairly straightforward to know at what point the integrate call should be made.
