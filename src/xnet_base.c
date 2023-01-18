@@ -1,5 +1,6 @@
 #include "xnet_base.h"
 #include "xnet_utils.h"
+#include "xnet_userbase.h"
 
 /**
  * @brief Static function that contains XNet's event listening loop.
@@ -199,6 +200,9 @@ int xnet_destroy(xnet_box_t *xnet)
         goto handle_err;
     }
 
+    /* Userbase needs special treatment due to child allocations. */
+    xnet_destroy_userbase(xnet->userbase);
+
     /* Free all allocations related to a XNet server. */
     nfree((void **)&xnet->general);
     nfree((void **)&xnet->network);
@@ -275,7 +279,7 @@ static xnet_box_t *initialize_xnet_box(void)
     if (NULL == new_xnet) {
         err = E_GEN_FAIL_ALLOC;
         goto handle_err;
-    }
+    }  
 
     /* ----------XNET GENERAL---------- */
     new_xnet->general = calloc(1, sizeof(xnet_general_group_t));
@@ -305,11 +309,19 @@ static xnet_box_t *initialize_xnet_box(void)
         goto handle_err;
     }
 
+    /* ----------XNET USERBASE---------- */
+    new_xnet->userbase = calloc(1, sizeof(xnet_userbase_group_t));
+    if (NULL == new_xnet->userbase) {
+        err = E_GEN_FAIL_ALLOC;
+        goto handle_err;
+    }
+
     return new_xnet;
 
 /* Unreachable unless error is triggered. */
 handle_err:
     g_show_err(err, "initialize_xnet_box()");
+    nfree((void **)&new_xnet->userbase);
     nfree((void **)&new_xnet->connections);
     nfree((void **)&new_xnet->thread);
     nfree((void **)&new_xnet->network);

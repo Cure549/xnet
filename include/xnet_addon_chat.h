@@ -17,6 +17,7 @@ extern "C" {
 
 #include "xnet_base.h"
 #include "xnet_utils.h"
+#include "xnet_userbase.h"
 
 struct __attribute__((__packed__)) chat_send_msg_tc {
     int length;

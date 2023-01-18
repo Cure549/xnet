@@ -42,6 +42,8 @@ enum GERR_XNet {
     E_SRV_INVALID_TIMEOUT = 2512,
     E_SRV_BAD_SOCKET = 2513,
     E_SRV_CLIENT_MAX_REACHED = 2514,
+    E_SRV_USER_EXISTS = 2515,
+    E_SRV_USER_NOT_EXIST = 2516,
 };
 
 // Perror style support for GErrors.

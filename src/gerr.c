@@ -26,6 +26,8 @@ static const char *const _gerr_desc[] = {
     [E_SRV_INVALID_TIMEOUT] = "Failed to assign timeout",
     [E_SRV_BAD_SOCKET] = "Bad socket given",
     [E_SRV_CLIENT_MAX_REACHED] = "Max clients reached",
+    [E_SRV_USER_EXISTS] = "User already exists.",
+    [E_SRV_USER_NOT_EXIST] = "User does not exist.",
 };
 
 static const char *

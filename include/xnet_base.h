@@ -113,9 +113,18 @@ typedef struct xnet_connection_group {
     xnet_active_connection_t *clients;
 } xnet_connection_group_t ;
 
-struct xnet_userbase_group {
-    int unused;
-};
+typedef struct xnet_user {
+    char *username;
+    char *password;
+    int perm_level;
+    struct xnet_user *prev;
+    struct xnet_user *next;
+} xnet_user_t ;
+
+typedef struct xnet_userbase_group {
+    size_t count;
+    xnet_user_t *head;
+} xnet_userbase_group_t ;
 
 /**
  * @brief Creates a new XNet server. If invalid values are given, 

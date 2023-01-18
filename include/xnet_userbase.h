@@ -18,25 +18,21 @@ extern "C" {
 #include "xnet_base.h"
 #include "xnet_utils.h"
 
-typedef struct xnet_user {
-    char *username;
-    char *password;
-    int perm_level;
-    xnet_user_t *next;
-} xnet_user_t ;
+#define XNET_MAX_USER_COUNT 128
+#define XNET_MAX_USERNAME_LEN 32
+#define XNET_MAX_PASSWD_LEN 32
 
-typedef struct xnet_userbase {
-    size_t count;
-    xnet_user_t *head;
-} xnet_userbase_t ;
+int xnet_create_user(xnet_userbase_group_t *base, char *user, char *pass, int new_perm);
 
-xnet_userbase_t *xnet_create_userbase(void);
+int xnet_delete_user(xnet_userbase_group_t *base, char *user);
 
-int xnet_create_user(xnet_userbase_t *base, char *user, char *pass, int new_perm);
+int xnet_hash_user(xnet_user_t *user);
 
-int xnet_delete_user(xnet_userbase_t *base, char *user);
+bool xnet_compare_user_hash(xnet_user_t *user, char *pass);
 
-void xnet_destroy_userbase(xnet_userbase_t *base);
+void xnet_print_userbase(xnet_userbase_group_t *base);
+
+void xnet_destroy_userbase(xnet_userbase_group_t *base);
 
 #ifdef __cplusplus
 }

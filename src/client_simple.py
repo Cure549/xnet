@@ -24,6 +24,12 @@ while True:
 
     if do_what == "connect":
         socket.connect((host, port))
-    else:
+    elif do_what == "create":
         data = MsgProto(201, do_what)
+        socket.sendall(data.construct())
+    elif do_what == "delete":
+        data = MsgProto(202, do_what)
+        socket.sendall(data.construct())
+    else:
+        data = MsgProto(203, do_what)
         socket.sendall(data.construct())
