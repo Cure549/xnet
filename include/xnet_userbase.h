@@ -15,6 +15,8 @@
 extern "C" {
 #endif
 
+#include "limits.h"
+
 #include "xnet_base.h"
 #include "xnet_utils.h"
 
@@ -25,10 +27,6 @@ extern "C" {
 int xnet_create_user(xnet_userbase_group_t *base, char *user, char *pass, int new_perm);
 
 int xnet_delete_user(xnet_userbase_group_t *base, char *user);
-
-int xnet_hash_user(xnet_user_t *user);
-
-bool xnet_compare_user_hash(xnet_user_t *user, char *pass);
 
 void xnet_print_userbase(xnet_userbase_group_t *base);
 

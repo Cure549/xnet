@@ -54,6 +54,8 @@ int chat_perform_send_msg(xnet_box_t *xnet, xnet_active_connection_t *client);
 
 int chat_perform_join_room(xnet_box_t *xnet, xnet_active_connection_t *client);
 
+int chat_perform_debug(xnet_box_t *xnet, xnet_active_connection_t *client);
+
 #ifdef __cplusplus
 }
 #endif

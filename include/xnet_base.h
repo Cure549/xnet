@@ -116,6 +116,7 @@ typedef struct xnet_connection_group {
 typedef struct xnet_user {
     char *username;
     char *password;
+    char *hashed_pass;
     int perm_level;
     struct xnet_user *prev;
     struct xnet_user *next;
