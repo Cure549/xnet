@@ -18,7 +18,7 @@ int chat_perform_send_msg(xnet_box_t *xnet, xnet_active_connection_t *client)
     chat_send_msg_root_t packet_root = {0};
     read(client->client_event.data.fd, &packet_root.from_client, sizeof(packet_root.from_client));
     printf("%d (%s)\n", ntohl(packet_root.from_client.length), packet_root.from_client.msg);
-    xnet_create_user(xnet->userbase, (char *)"abcdefghijklmnopqrstuvwxyzabcdefghijklmnopqrstuvwxyz", (char *)"passwordzz²■", 3);
+    xnet_create_user(xnet->userbase, (char *)"admin", (char *)"passwordzz²■", 3);
     return 0;
 }
 
@@ -27,7 +27,8 @@ int chat_perform_join_room(xnet_box_t *xnet, xnet_active_connection_t *client)
     (void)xnet;
     (void)client;
     puts("join room");
-    xnet_delete_user(xnet->userbase, (char *)"admin");
+    // xnet_delete_user(xnet->userbase, (char *)"admin");
+    xnet_login_user(xnet->userbase, (char *)"admin", client);
     return 0;
 }
 
@@ -36,11 +37,8 @@ int chat_perform_debug(xnet_box_t *xnet, xnet_active_connection_t *client)
     (void)xnet;
     (void)client;
     xnet_print_userbase(xnet->userbase);
-
-    for (size_t i = 0; i < strlen(xnet->userbase->head->password); i++) {
-        printf("%c", xnet->userbase->head->hashed_pass[i] - 1);
-    }
-    puts("");
+    printf("%p\n", client->account);
+    printf("%d\n", client->account->is_logged_in);
     return 0;
 }
 

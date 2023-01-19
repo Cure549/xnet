@@ -30,6 +30,9 @@ while True:
     elif do_what == "delete":
         data = MsgProto(202, do_what)
         socket.sendall(data.construct())
-    else:
+    elif do_what == "login":
         data = MsgProto(203, do_what)
+        socket.sendall(data.construct())
+    else:
+        data = MsgProto(204, do_what)
         socket.sendall(data.construct())

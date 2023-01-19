@@ -28,6 +28,7 @@ int xnet_create_user(xnet_userbase_group_t *base, char *user, char *pass, int ne
     xnet_user_t *prev = NULL;
     xnet_user_t *current = base->head;
 
+    /* Cant use xnet_user_exists() due to needing to keep track of previous node. */
     while (NULL != current) {
         /* If an account exists with same username, don't create user. */
         if (0 == strncmp(user, current->username, XNET_MAX_USERNAME_LEN)) {
@@ -90,19 +91,10 @@ int xnet_delete_user(xnet_userbase_group_t *base, char *user)
         goto handle_err;
     }
 
-    /* Loop through linked list until a match is found. */
-    xnet_user_t *current = base->head;
-    bool user_found = false;
-    while (NULL != current) {
-        /* If this condition is met, 'current' is pointing to the argued user. */
-        if (0 == strncmp(current->username, user, XNET_MAX_USERNAME_LEN)) {
-            user_found = true;
-            break;
-        }
-        current = current->next;
-    }
+    /* Check if user exists. */
+    xnet_user_t *current = xnet_user_exists(base, user);
 
-    if (false == user_found) {
+    if (NULL == current) {
         err = E_SRV_USER_NOT_EXIST;
         goto handle_err;
     }
@@ -131,6 +123,213 @@ int xnet_delete_user(xnet_userbase_group_t *base, char *user)
 handle_err:
     g_show_err(err, "xnet_delete_user()");
     return err;
+}
+
+int xnet_login_user(xnet_userbase_group_t *base, char *user, xnet_active_connection_t *conn)
+{
+    int err = 0;
+
+    /* NULL Check */
+    if (NULL == base) {
+        err = E_GEN_NULL_PTR;
+        goto handle_err;
+    }
+
+    if (NULL == user) {
+        err = E_GEN_NULL_PTR;
+        goto handle_err;
+    }
+
+    if (NULL == conn) {
+        err = E_GEN_NULL_PTR;
+        goto handle_err;
+    }
+
+    /* Ensure connection object is active. */
+    if (false == conn->is_active) {
+        err = E_GEN_OUT_RANGE;
+        goto handle_err;
+    }
+
+    /* Ensure that the connection is not already assigned to an account. */
+    if (NULL != conn->account) {
+        err = E_GEN_OUT_RANGE;
+        goto handle_err;
+    }
+
+    /* Find user object. */
+    xnet_user_t *current = xnet_user_exists(base, user);
+
+    /* Make sure we found a user. */
+    if (NULL == current) {
+        err = E_SRV_USER_NOT_EXIST;
+        goto handle_err;
+    }
+
+    /* Ensure user is not logged in through another connection. */
+    if (true == current->is_logged_in) {
+        err = E_GEN_OUT_RANGE;
+        goto handle_err;
+    }
+
+    /* After passing all checks, accept login. */
+    conn->account = current;
+    conn->account->is_logged_in = true;
+
+	return err;
+
+/* Unreachable unless error is triggered. */
+handle_err:
+    g_show_err(err, "xnet_login_user()");
+    return err;
+}
+
+int xnet_logout_user(xnet_active_connection_t *conn)
+{
+    int err = 0;
+
+    /* NULL Check */
+    if (NULL == conn) {
+        err = E_GEN_NULL_PTR;
+        goto handle_err;
+    }
+
+    if (NULL == conn->account) {
+        err = E_GEN_NULL_PTR;
+        goto handle_err;
+    }
+
+    /* Make sure connection object is active. */
+    if (false == conn->is_active) {
+        err = E_GEN_NULL_PTR;
+        goto handle_err;
+    }
+
+    /* Perform logout */
+    conn->account->is_logged_in = false;
+    conn->account = NULL;
+
+    return err;
+
+/* Unreachable unless error is triggered. */
+handle_err:
+    g_show_err(err, "xnet_logout_user()");
+    return err;
+}
+
+xnet_user_t *xnet_user_exists(xnet_userbase_group_t *base, char *user)
+{
+    int err = 0;
+
+    /* NULL Check */
+    if (NULL == base) {
+        err = E_GEN_NULL_PTR;
+        goto handle_err;
+    }
+
+    if (NULL == user) {
+        err = E_GEN_NULL_PTR;
+        goto handle_err;
+    }
+
+    xnet_user_t *current = base->head;
+    while (NULL != current) {
+        /* If this condition is met, 'current' is pointing to the argued user. */
+        if (0 == strncmp(current->username, user, XNET_MAX_USERNAME_LEN)) {
+            break;
+        }
+        current = current->next;
+    }
+
+    return current;
+
+/* Unreachable unless error is triggered. */
+handle_err:
+    g_show_err(err, "xnet_user_exists()");
+    return NULL;
+}
+
+bool xnet_user_is_logged_in(xnet_userbase_group_t *base, char *user)
+{
+    int err = 0;
+
+    /* NULL Check */
+    if (NULL == base) {
+        err = E_GEN_NULL_PTR;
+        goto handle_err;
+    }
+
+    if (NULL == user) {
+        err = E_GEN_NULL_PTR;
+        goto handle_err;
+    }
+
+    /* See if user even exists in the first place. */
+    xnet_user_t *found_user = xnet_user_exists(base, user);
+    if (NULL == found_user) {
+        err = E_GEN_NULL_PTR;
+        goto handle_err;
+    }
+
+    /* Check logged in status. */
+    bool result = found_user->is_logged_in;
+
+    return result;
+
+/* Unreachable unless error is triggered. */
+handle_err:
+    g_show_err(err, "xnet_user_is_logged_in()");
+    return false;
+}
+
+xnet_active_connection_t *xnet_get_conn_by_user(xnet_box_t *xnet, char *user)
+{
+    int err = 0;
+
+    /* NULL Check */
+    if (NULL == xnet) {
+        err = E_GEN_NULL_PTR;
+        goto handle_err;
+    }
+
+    if (NULL == xnet->userbase) {
+        err = E_GEN_NULL_PTR;
+        goto handle_err;
+    }
+
+    if (NULL == user) {
+        err = E_GEN_NULL_PTR;
+        goto handle_err;
+    }
+
+    /* Check user existance. */
+    xnet_user_t *found_user = xnet_user_exists(xnet->userbase, user);
+    if (NULL == found_user) {
+        err = E_GEN_NULL_PTR;
+        goto handle_err;
+    }
+
+    /* The only way a user can be attached to a connection object, is if they are logged in. */
+    bool logged_in = xnet_user_is_logged_in(xnet->userbase, user);
+    if (false == logged_in) {
+        err = E_GEN_OUT_RANGE;
+        goto handle_err;
+    }
+
+    /* Loop through all active connections and find potential match. */
+	xnet_active_connection_t *needle = NULL;
+	for (size_t n = 0; n < xnet->general->max_connections; n++) {
+		if (found_user == xnet->connections->clients[n].account) {
+			needle = &xnet->connections->clients[n];
+		}
+	}
+
+    return needle;
+
+/* Unreachable unless error is triggered. */
+handle_err:
+    g_show_err(err, "xnet_get_conn_by_user()");
+    return NULL;
 }
 
 void xnet_print_userbase(xnet_userbase_group_t *base)

@@ -60,6 +60,16 @@ typedef struct xnet_box {
     struct xnet_userbase_group *userbase;
 } xnet_box_t ; 
 
+typedef struct xnet_user {
+    char *username;
+    char *password;
+    char *hashed_pass;
+    int perm_level;
+    bool is_logged_in;
+    struct xnet_user *prev;
+    struct xnet_user *next;
+} xnet_user_t ;
+
 typedef struct xnet_user_session {
     int id;
     int timer_fd;
@@ -69,13 +79,13 @@ typedef struct xnet_user_session {
 } xnet_user_session_t ;
 
 typedef struct xnet_active_connection {
-    /* State of connection object, if false, connection object lacks a client. */
+    /* Indicator that represents if the connection object is actively containing a connections data. */
     bool is_active;
     /* State of client, are they in the middle of an action? */
     bool is_working;
     int socket;
     struct epoll_event client_event;
-    // Userbase entry here...
+    xnet_user_t *account;
     xnet_user_session_t session;
 } xnet_active_connection_t ;
 
@@ -112,15 +122,6 @@ typedef struct xnet_connection_group {
     size_t connection_count;
     xnet_active_connection_t *clients;
 } xnet_connection_group_t ;
-
-typedef struct xnet_user {
-    char *username;
-    char *password;
-    char *hashed_pass;
-    int perm_level;
-    struct xnet_user *prev;
-    struct xnet_user *next;
-} xnet_user_t ;
 
 typedef struct xnet_userbase_group {
     size_t count;
