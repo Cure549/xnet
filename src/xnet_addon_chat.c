@@ -37,8 +37,6 @@ int chat_perform_debug(xnet_box_t *xnet, xnet_active_connection_t *client)
     (void)xnet;
     (void)client;
     xnet_print_userbase(xnet->userbase);
-    printf("%p\n", client->account);
-    printf("%d\n", client->account->is_logged_in);
     return 0;
 }
 

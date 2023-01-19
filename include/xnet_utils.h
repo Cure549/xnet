@@ -21,6 +21,7 @@ extern "C" {
 #include <fcntl.h>
 
 #include "xnet_base.h"
+#include "xnet_userbase.h"
 
 /**
  * @brief Set @param sockfd to non-blocking.

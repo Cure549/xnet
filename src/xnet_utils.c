@@ -197,6 +197,7 @@ int xnet_close_connection(xnet_box_t *xnet, xnet_active_connection_t *client)
 
 	close(client->socket);
 	close(client->session.timer_fd);
+	xnet_logout_user(client);
 	memset(&client->session.t_content, 0, sizeof(struct itimerspec));
 	memset(&client->session.t_data, 0, sizeof(struct timespec));
 	memset(&client->session.session_event, 0, sizeof(struct epoll_event));

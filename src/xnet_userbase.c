@@ -175,6 +175,7 @@ int xnet_login_user(xnet_userbase_group_t *base, char *user, xnet_active_connect
     /* After passing all checks, accept login. */
     conn->account = current;
     conn->account->is_logged_in = true;
+    printf("%s has logged in. Assigned to socket [%d]\n", conn->account->username, conn->socket);
 
 	return err;
 
@@ -207,6 +208,7 @@ int xnet_logout_user(xnet_active_connection_t *conn)
 
     /* Perform logout */
     conn->account->is_logged_in = false;
+    printf("%s has logged out.\n", conn->account->username);
     conn->account = NULL;
 
     return err;
