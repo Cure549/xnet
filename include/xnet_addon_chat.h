@@ -19,6 +19,23 @@ extern "C" {
 #include "xnet_utils.h"
 #include "xnet_userbase.h"
 
+/* 
+- Chat send message
+- Create rooms with chat_create_room();
+*/
+#define MAX_USERS_IN_ROOM 5
+#define MAX_ROOM_COUNT 5
+#define MAX_ROOM_NAME_LEN 32
+
+typedef struct chat_data_room {
+    const char *name;
+    xnet_active_connection_t *users[MAX_USERS_IN_ROOM];
+} chat_room_t ;
+
+typedef struct chat_data_main {
+    chat_room_t rooms[MAX_ROOM_COUNT];
+} chat_main_t ;
+
 struct __attribute__((__packed__)) chat_send_msg_tc {
     int length;
     char msg[2048];
@@ -55,6 +72,8 @@ int chat_perform_send_msg(xnet_box_t *xnet, xnet_active_connection_t *client);
 int chat_perform_join_room(xnet_box_t *xnet, xnet_active_connection_t *client);
 
 int chat_perform_debug(xnet_box_t *xnet, xnet_active_connection_t *client);
+
+int chat_create_room(const char *room_name);
 
 #ifdef __cplusplus
 }

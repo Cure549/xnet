@@ -26,7 +26,7 @@ int xnet_create_user(xnet_userbase_group_t *base, char *user, char *pass, int ne
 
 int xnet_delete_user(xnet_userbase_group_t *base, char *user);
 
-int xnet_login_user(xnet_userbase_group_t *base, char *user, xnet_active_connection_t *conn);
+int xnet_login_user(xnet_userbase_group_t *base, char *user, char *pass, xnet_active_connection_t *conn);
 
 int xnet_logout_user(xnet_active_connection_t *conn);
 

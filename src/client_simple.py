@@ -24,13 +24,13 @@ while True:
 
     if do_what == "connect":
         socket.connect((host, port))
-    elif do_what == "create":
+    elif do_what == "send":
         data = MsgProto(201, do_what)
         socket.sendall(data.construct())
-    elif do_what == "delete":
+    elif do_what == "join":
         data = MsgProto(202, do_what)
         socket.sendall(data.construct())
-    elif do_what == "login":
+    elif do_what == "debug":
         data = MsgProto(203, do_what)
         socket.sendall(data.construct())
     else:

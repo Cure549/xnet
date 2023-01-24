@@ -125,7 +125,7 @@ handle_err:
     return err;
 }
 
-int xnet_login_user(xnet_userbase_group_t *base, char *user, xnet_active_connection_t *conn)
+int xnet_login_user(xnet_userbase_group_t *base, char *user, char *pass, xnet_active_connection_t *conn)
 {
     int err = 0;
 
@@ -169,6 +169,12 @@ int xnet_login_user(xnet_userbase_group_t *base, char *user, xnet_active_connect
     /* Ensure user is not logged in through another connection. */
     if (true == current->is_logged_in) {
         err = E_GEN_OUT_RANGE;
+        goto handle_err;
+    }
+
+    /* Check password. */
+    if (0 != strncmp(current->password, pass, XNET_MAX_PASSWD_LEN)) {
+        err = E_GEN_NON_ZERO;
         goto handle_err;
     }
 

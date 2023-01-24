@@ -1,13 +1,25 @@
-# XNET
+# **XNET**
 
 A multi-purpose, multi-threaded, epoll server framework that uses an addon approach to expand it's modularity.
 
+# **Table Of Contents**
+[Overview](#overview)
 
-# OVERVIEW
+[How-To-Use](#how-to-use)
+
+[The Loading Process](#the-loading-process)
+
+[Server Categories](#server-categories)
+
+[The Addon System](#the-addon-system)
+
+[Creating An Addon](#creating-an-addon)
+
+# **OVERVIEW**
 
 Although XNet was made to **make server development easier**. It's still crucial to understand the underlying structure. XNet is a server framework and does have support for **out-of-the-box** use cases. However, to squeeze all of the possibilities out of XNet, this documentation will explain everything such as the event structuring, session handling, addon systems, threading, packet subscription, etc. This is your guide to all things XNet.
 
-# HOW-TO-USE
+# **HOW-TO-USE**
 
 ### Sample
 ```c
@@ -32,7 +44,7 @@ user@my_computer:~$ ./a.out
 IP: 127.0.0.1
 Port: 47007
 ```
-> **Note:** If there are any issues in regards to getting this output when attempting to execute the above code. Ensure you have no linker errors, and that the header file is being properly recognized.
+> 📝 **Note:** If there are any issues in regards to getting this output when attempting to execute the above code. Ensure you have no linker errors, and that the header file is being properly recognized.
 
 ### Explanation
 By including the **header file**, you will be exposed to three very important functions.
@@ -43,7 +55,7 @@ xnet_destroy();
 ```
 These functions consist of the **bare minimum** when it comes to a running an instance of XNet. A more comprehensive explanation of what these functions do will be explained further down. The fundamental aspect to understand here is that XNet has a **very specific loading process**. See below.
 
-# THE LOADING PROCESS
+# **THE LOADING PROCESS**
 
 XNet consists of a five-part loading process. Understanding this will make understanding everything else much easier.
 
@@ -53,7 +65,7 @@ Creating the server consists of calling the following function signature.
 xnet_box_t *xnet_create(const char *ip, size_t port, size_t backlog, size_t timeout);
 ```
 This accomplishes a few things. Ensures the values given are valid and assigns them to the server. As well as it initializes necessary memory for all the internal server categories.
-> **Note:** These internal server categories consist of General, Network, Thread, Connections, and Userbase. They are all covered more deeply, further in the guide.
+> 📝 **Note:** These internal server categories consist of General, Network, Thread, Connections, and Userbase. They are all covered more deeply, further in the guide.
 
 There are two static functions responsible for the majority of this heavy lifting.
 ```c
@@ -67,7 +79,7 @@ static int xnet_configure(xnet_box_t *xnet);
 
 ## 2. Configure Server
 This step is where the end-user will be doing **essentially all of the configuration for the server**. If you want to introduce any custom addons, and/or blacklist features from said addons. It should occur at this point. You can also manipulate the standard event calls.
-> **Note:** There are four standard event calls. OnConnectionAttempt, OnTerminateSignal, OnClientSend, and OnSessionExpire. These are fairly self explanatory, however a deeper explanation will be made regarding these events further in the guide.
+> 📝 **Note:** There are four standard event calls. OnConnectionAttempt, OnTerminateSignal, OnClientSend, and OnSessionExpire. These are fairly self explanatory, however a deeper explanation will be made regarding these events further in the guide.
 
 ## 3. Start Server
 
@@ -80,7 +92,7 @@ This step is where the end-user will be doing **essentially all of the configura
 ## 5. Shutdown and Cleanup
 
 
-# SERVER CATEGORIES
+# **SERVER CATEGORIES**
 
 When using XNet, the end-user has access to a lot of information about the server. It's split up into five main categories that allow the end-user to have readable, quick access to various data.
 
@@ -100,6 +112,7 @@ void (*on_client_send)(xnet_box_t *xnet, xnet_active_connection_t *me);
 // It's not suggested to manually change 'perform', unless you know what you are doing.
 int  (*perform[XNET_MAX_FEATURES])(xnet_box_t *xnet, xnet_active_connection_t *client);
 ```
+
 Examples
 ```c
 xnet->general->is_running = false;
@@ -114,7 +127,7 @@ xnet->general->on_client_send = my_custom_func;
 
 ## Thread
 
-# THE ADDON SYSTEM
+# **THE ADDON SYSTEM**
 One of the key aspects of XNet is that it incorporates an addon system. A way to **compartmentalize** the server's core functionality, from the additive and unique functionality that is requested from a client. This not only allows there to be minimal reliance in terms of code, but allows the end-user to mentally abstract the two compartments.
 
 Addons are able to communicate with everything related to the server's core, however it's a **one-way relationship**. This is to ensure there is not accidental reliance embedded into the server. An addon can access data from the server, but the server can not access data from an addon. If you run into a situation where this poses an issue, reconsider your design decisions.
@@ -126,7 +139,7 @@ When creating an addon, it is up to the creator if a reliance should be establis
 - Feature opcodes 0-50 are reserved for core server functionality.
 
 
-# CREATING AN ADDON
+# **CREATING AN ADDON**
 Creating addons for XNet is where things really start to get fun. However, there's a standard that should be known before releasing an addon into the wild. This is to ensure as much consistency as possible when using or building addons for XNet.
 
 ## Folder Structure Example
@@ -247,3 +260,15 @@ int main(void)
 	xnet_destroy(xnet);
 }
 ```
+# **FUNCTION AND TYPES OVERVIEW**
+| Types                          | Description     |
+|--------------------------------|-----------------|
+| ```xnet_box_t```               | The most important data type in XNet. Controls everthing in regards to server behaviour. |
+| ```xnet_user_t```              | Hold's account data such as username, password, permissions, etc. This type is solely responsible for handling accounts.            |
+| ```xnet_user_session_t```      | Each user upon connection must be given a timed session. This type does just that.            |
+| ```xnet_active_connection_t``` | Each time a client successfully connects. They are assigned one of these. This type is what XNet uses to represent a client's connection. |
+| ```xnet_general_group_t```     |  |
+| ```xnet_network_group_t```     |  |
+| ```xnet_thread_group_t```      |  |
+| ```xnet_connection_group_t```  |  |
+| ```xnet_userbase_group_t```    |  |
