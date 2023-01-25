@@ -29,7 +29,7 @@ int chat_perform_join_room(xnet_box_t *xnet, xnet_active_connection_t *client)
     (void)client;
     puts("join room");
     xnet_login_user(xnet->userbase, (char *)"admin", (char *)"password", client);
-    assign_user_to_room(client, "The Hub");
+    assign_user_to_room(client, (char *)"The Hub");
     printf("%s joined room %s\n", client->account->username, "The Hub");
     return 0;
 }

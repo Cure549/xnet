@@ -360,6 +360,15 @@ handle_err:
     return err;
 }
 
+void flush_buffer(int fd)
+{
+	char packet_trash[XNET_MAX_PACKET_BUF_SZ] = {0};
+    ssize_t bytes_read = read(fd, packet_trash, XNET_MAX_PACKET_BUF_SZ);
+    while (0 < bytes_read) {
+        bytes_read = read(fd, packet_trash, XNET_MAX_PACKET_BUF_SZ);
+    }
+}
+
 static int xnet_new_session(xnet_active_connection_t *client)
 {
 	int err = 0;
@@ -400,13 +409,4 @@ static int xnet_begin_session(xnet_box_t *xnet, xnet_active_connection_t *client
 handle_err:
     g_show_err(err, "xnet_begin_session()");
     return err;
-}
-
-void flush_buffer(int fd)
-{
-	char packet_trash[XNET_MAX_PACKET_BUF_SZ] = {0};
-    ssize_t bytes_read = read(fd, packet_trash, XNET_MAX_PACKET_BUF_SZ);
-    while (0 < bytes_read) {
-        bytes_read = read(fd, packet_trash, XNET_MAX_PACKET_BUF_SZ);
-    }
 }
