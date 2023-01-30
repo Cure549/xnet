@@ -525,7 +525,11 @@ static void xnet_default_on_client_send(xnet_box_t *xnet, xnet_active_connection
 
     /* If opcode is supported, call requested feature's function. */
     if (NULL != xnet->general->perform[current_op]) {
-        xnet->general->perform[current_op] (xnet, me);
+        /* If opcode failed internally, display error message for the action. */
+        int action_result = xnet->general->perform[current_op] (xnet, me);
+        if (-1 == action_result) {
+            fprintf(stderr, "The performing action for opcode [%d] failed.\n", current_op);
+        }
     } else {
         fprintf(stderr, "Unsupported opcode [%d] detected. Ignoring request.\n", current_op);
     }
