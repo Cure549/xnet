@@ -1,6 +1,7 @@
 #include "xnet_base.h"
 #include "xnet_utils.h"
 #include "xnet_userbase.h"
+#include "xnet_threads.h"
 
 /**
  * @brief Static function that contains XNet's event listening loop.
@@ -397,7 +398,16 @@ static int xnet_configure(xnet_box_t *xnet)
     }
 
     /* ----------THREAD CATEGORY---------- */
-    xnet->thread->unused = 1;
+    pthread_mutex_init(&xnet->thread->queue_mutex, NULL);
+    pthread_cond_init(&xnet->thread->queue_condition, NULL);
+    xnet->thread->shutdown = false;
+
+    /* Spawn threads */
+    for (size_t n = 0; n < XNET_THREAD_COUNT; n++) {
+        if (pthread_create(&xnet->thread->threads[n], NULL, &xnet_begin_thread, NULL) != 0) {
+            perror("Failed to create thread.");
+        }
+    }
 
     /* ----------CONNECTION CATEGORY---------- */
     xnet->connections->connection_count = 0;

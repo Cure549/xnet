@@ -1,5 +1,5 @@
 /**
- * @file        xnet_utils.h
+ * @file        xnet_threads.h
  * @author      Kameryn Gaige Knight
  * @brief       Responsible for the creation, destruction, and handling of
  *              an XNet threadpool.
@@ -20,7 +20,15 @@ extern "C" {
 #include <stdlib.h>
 #include <pthread.h>
 
-// Pull over tested threadpool lib.
+#include "xnet_base.h"
+
+void *xnet_begin_thread(void *args);
+
+void xnet_submit_work(xnet_task_t task);
+
+void xnet_do_work(xnet_task_t *task);
+
+void xnet_stop_threads(xnet_box_t *xnet);
 
 #ifdef __cplusplus
 }
