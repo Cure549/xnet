@@ -22,13 +22,15 @@ extern "C" {
 
 #include "xnet_base.h"
 
-void *xnet_begin_thread(void *args);
+void xnet_create_pool(xnet_box_t *xnet);
 
-void xnet_submit_work(xnet_task_t task);
+void *xnet_begin_thread(void *arg);
+
+void xnet_submit_work(xnet_box_t *xnet, xnet_task_t task);
 
 void xnet_do_work(xnet_task_t *task);
 
-void xnet_stop_threads(xnet_box_t *xnet);
+void xnet_destroy_pool(xnet_box_t *xnet);
 
 #ifdef __cplusplus
 }

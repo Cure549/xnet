@@ -194,15 +194,15 @@ handle_err:
 int xnet_destroy(xnet_box_t *xnet)
 {
     int err = 0;
-
     /* Null Check */
     if (NULL == xnet) {
         err = E_GEN_NULL_PTR;
         goto handle_err;
     }
 
-    /* Userbase needs special treatment due to child allocations. */
+    /* Userbase and threadpool need special treatment due to child allocations. */
     xnet_destroy_userbase(xnet->userbase);
+    xnet_destroy_pool(xnet);
 
     /* Free all allocations related to a XNet server. */
     nfree((void **)&xnet->general);
@@ -249,9 +249,11 @@ static void xnet_listen_loop(xnet_box_t *xnet)
                    This is to allow the server's main thread to keep rolling through.
                    A session ending should not in any way, disrupt an action mid-way through.
                 */
-                noisy_client->is_working = true;
-                xnet->general->on_client_send(xnet, noisy_client);
-                noisy_client->is_working = false;
+                xnet_task_t new_task = {
+                    .task_function = xnet->general->on_client_send,
+                    .xnet = xnet,
+                    .me = noisy_client };
+                xnet_submit_work(xnet, new_task);
 
             /* If event triggers on any other fd within the event array, it is a session's fd. */
             } else {
@@ -398,16 +400,7 @@ static int xnet_configure(xnet_box_t *xnet)
     }
 
     /* ----------THREAD CATEGORY---------- */
-    pthread_mutex_init(&xnet->thread->queue_mutex, NULL);
-    pthread_cond_init(&xnet->thread->queue_condition, NULL);
-    xnet->thread->shutdown = false;
-
-    /* Spawn threads */
-    for (size_t n = 0; n < XNET_THREAD_COUNT; n++) {
-        if (pthread_create(&xnet->thread->threads[n], NULL, &xnet_begin_thread, NULL) != 0) {
-            perror("Failed to create thread.");
-        }
-    }
+    xnet_create_pool(xnet);
 
     /* ----------CONNECTION CATEGORY---------- */
     xnet->connections->connection_count = 0;

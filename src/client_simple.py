@@ -1,8 +1,6 @@
 import opcode
 import socket
-import os
-import ctypes
-import string
+import cmd
 import struct
 from dataclasses import dataclass
 
@@ -18,6 +16,28 @@ class MsgProto:
 host = "127.0.0.1"  # The server's hostname or IP address
 port = 47007  # The port used by the server
 socket = socket.socket(socket.AF_INET, socket.SOCK_STREAM)
+
+
+# class CommandDriver(cmd.Cmd):
+#     intro = "Type help or ? to list commands.\n"
+#     prompt = "> "
+
+#     def do_connect(self, line):
+#         socket.connect((host, port))
+
+#     def do_send_msg(self, line):
+#         data = MsgProto(201, line)
+#         socket.sendall(data.construct())
+
+#     def do_join_room(self, line):
+#         pass
+
+#     def do_EOF(self, line):
+#         return True
+
+
+# if __name__ == '__main__':
+#     CommandDriver().cmdloop()
 
 while True:
     do_what = input("command > ")
