@@ -67,14 +67,14 @@ void xnet_do_work(xnet_task_t *task)
     }
 
     task->me->is_working = true;
+    puts("Started Work");
     task->task_function(task->xnet, task->me);
-    puts("finished working");
+    puts("Finished Work");
     task->me->is_working = false;
 }
 
 void xnet_destroy_pool(xnet_box_t *xnet)
 {
-    puts("hit destroy pool");
     if (NULL == xnet) {
         return;
     }

@@ -148,6 +148,9 @@ int xnet_start(xnet_box_t *xnet)
     /* Create dispositions for SIGINT and SIGQUIT. */
     xnet_signal_disposition(xnet);
 
+    /* Create threadpool AFTER signal dispositions. This is to ensure main thread receives signal. */
+    xnet_create_pool(xnet);
+
     /* Apply default event functions if not overridden. */
     if (NULL == xnet->general->on_connection_attempt) {
         xnet->general->on_connection_attempt = xnet_default_on_connection_attempt;
@@ -398,9 +401,6 @@ static int xnet_configure(xnet_box_t *xnet)
         err = E_SRV_FAIL_BIND;
         goto handle_err;
     }
-
-    /* ----------THREAD CATEGORY---------- */
-    xnet_create_pool(xnet);
 
     /* ----------CONNECTION CATEGORY---------- */
     xnet->connections->connection_count = 0;
