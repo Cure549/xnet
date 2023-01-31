@@ -245,18 +245,8 @@ static void xnet_listen_loop(xnet_box_t *xnet)
             /* If event triggers and was matched to a client socket, we are working with a client request. */
             } else if (NULL != xnet_get_conn_by_socket(xnet, current_event)) {
                 xnet_active_connection_t *noisy_client = xnet_get_conn_by_socket(xnet, current_event);
-
-                /* Pool worker should be calling 'on_client_send'.
-                   'is_working' should be set to true within this function.
-                   The threadpool worker should immedietly set 'is_working' to false when it is done.
-                   This is to allow the server's main thread to keep rolling through.
-                   A session ending should not in any way, disrupt an action mid-way through.
-                */
-                xnet_task_t new_task = {
-                    .task_function = xnet->general->on_client_send,
-                    .xnet = xnet,
-                    .me = noisy_client };
-                xnet_submit_work(xnet, new_task);
+                
+                xnet->general->on_client_send(xnet, noisy_client);
 
             /* If event triggers on any other fd within the event array, it is a session's fd. */
             } else {
@@ -529,10 +519,21 @@ static void xnet_default_on_client_send(xnet_box_t *xnet, xnet_active_connection
     /* If opcode is supported, call requested feature's function. */
     if (NULL != xnet->general->perform[current_op]) {
         /* If opcode failed internally, display error message for the action. */
-        int action_result = xnet->general->perform[current_op] (xnet, me);
-        if (-1 == action_result) {
-            fprintf(stderr, "The performing action for opcode [%d] failed.\n", current_op);
+        // int action_result = xnet->general->perform[current_op] (xnet, me);
+        xnet_task_t *new_task = calloc(1, sizeof(xnet_task_t));
+        if (NULL == new_task) {
+            fprintf(stderr, "Server is out of memory. Breaking out.\n");
+            xnet_shutdown(xnet);
         }
+
+        new_task->task_function = xnet->general->perform[current_op];
+        new_task->xnet = xnet;
+        new_task->me = me;
+
+        xnet_work_push(xnet, new_task);
+        // if (-1 == action_result) {
+        //     fprintf(stderr, "The performing action for opcode [%d] failed.\n", current_op);
+        // }
     } else {
         fprintf(stderr, "Unsupported opcode [%d] detected. Ignoring request.\n", current_op);
     }

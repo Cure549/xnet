@@ -10,20 +10,26 @@ int xnet_integrate_chat_addon(xnet_box_t *xnet)
     xnet_insert_feature(xnet, 201, chat_perform_send_msg);
     xnet_insert_feature(xnet, 202, chat_perform_join_room);
     xnet_insert_feature(xnet, 203, chat_perform_debug);
+    pthread_mutex_init(&main_mutex, NULL);
     return 0;
 }
 
 int chat_perform_send_msg(xnet_box_t *xnet, xnet_active_connection_t *client)
 {
-    pthread_mutex_init(&main_mutex, NULL);
-    pthread_mutex_lock(&main_mutex);
+    // pthread_mutex_lock(&main_mutex);
+    puts("entered chat_perform_send_msg");
+    usleep(3000000);
+    // (void)xnet;
+    // puts("send_msg");
+    // chat_send_msg_root_t packet_root = {0};
+    // read(client->client_event.data.fd, &packet_root.from_client, sizeof(packet_root.from_client));
+    // printf("%d (%s)\n", ntohl(packet_root.from_client.length), packet_root.from_client.msg);
+    // xnet_create_user(xnet->userbase, (char *)"admin", (char *)"password", 3);
     (void)xnet;
-    puts("send_msg");
-    chat_send_msg_root_t packet_root = {0};
-    read(client->client_event.data.fd, &packet_root.from_client, sizeof(packet_root.from_client));
-    printf("%d (%s)\n", ntohl(packet_root.from_client.length), packet_root.from_client.msg);
-    xnet_create_user(xnet->userbase, (char *)"admin", (char *)"password", 3);
-    pthread_mutex_unlock(&main_mutex);
+    (void)client;
+    puts("leaving chat_perform_send_msg");
+    
+    // pthread_mutex_unlock(&main_mutex);
     return 0;
 }
 

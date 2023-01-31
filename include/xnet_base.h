@@ -53,7 +53,7 @@ extern "C" {
 #define XNET_MAX_PACKET_BUF_SZ       8192
 
 #define XNET_THREAD_COUNT            5
-#define XNET_THREAD_TASK_COUNT       256
+#define XNET_THREAD_MAX_TASKS       256
 
 typedef struct xnet_box {
     struct xnet_general_group *general;
@@ -118,17 +118,20 @@ typedef struct xnet_network_group {
 } xnet_network_group_t ;
 
 typedef struct xnet_task {
-    void (*task_function)(xnet_box_t *xnet, xnet_active_connection_t *me);
+    int task_count;
+    int (*task_function)(xnet_box_t *xnet, xnet_active_connection_t *me);
     xnet_box_t *xnet;
     xnet_active_connection_t *me;
 } xnet_task_t ;
 
 typedef struct xnet_thread_group {
+    int queue_head;
+    int queue_tail;
+    int queue_size;
     pthread_t threads[XNET_THREAD_COUNT];
-    pthread_mutex_t queue_mutex;
-    pthread_cond_t queue_condition;
-    xnet_task_t task_queue[XNET_THREAD_TASK_COUNT];
-    int task_count;
+    pthread_mutex_t main_lock;
+    pthread_cond_t main_condition;
+    xnet_task_t task_queue[XNET_THREAD_MAX_TASKS];
     bool shutdown;
 } xnet_thread_group_t ;
 
