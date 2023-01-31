@@ -12,7 +12,6 @@ void xnet_create_pool(xnet_box_t *xnet)
             perror("Failed to create thread.");
         }
     }
-
 }
 
 void *xnet_begin_thread(void *arg)

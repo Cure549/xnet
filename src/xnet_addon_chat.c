@@ -1,6 +1,7 @@
 #include "xnet_addon_chat.h"
 
 chat_main_t chat_base;
+pthread_mutex_t main_mutex;
 
 static int assign_user_to_room(xnet_active_connection_t *client, char *room_name);
 
@@ -14,12 +15,15 @@ int xnet_integrate_chat_addon(xnet_box_t *xnet)
 
 int chat_perform_send_msg(xnet_box_t *xnet, xnet_active_connection_t *client)
 {
+    pthread_mutex_init(&main_mutex, NULL);
+    pthread_mutex_lock(&main_mutex);
     (void)xnet;
     puts("send_msg");
     chat_send_msg_root_t packet_root = {0};
     read(client->client_event.data.fd, &packet_root.from_client, sizeof(packet_root.from_client));
     printf("%d (%s)\n", ntohl(packet_root.from_client.length), packet_root.from_client.msg);
     xnet_create_user(xnet->userbase, (char *)"admin", (char *)"password", 3);
+    pthread_mutex_unlock(&main_mutex);
     return 0;
 }
 

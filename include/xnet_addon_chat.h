@@ -17,6 +17,7 @@ extern "C" {
 
 #include "xnet_base.h"
 #include "xnet_utils.h"
+#include "xnet_threads.h"
 #include "xnet_userbase.h"
 
 /* 
