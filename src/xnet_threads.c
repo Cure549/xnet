@@ -7,7 +7,6 @@ void xnet_create_pool(xnet_box_t *xnet)
     pthread_mutex_init(&xnet->thread->main_lock, NULL);
     pthread_cond_init(&xnet->thread->main_condition, NULL);
     xnet->thread->queue_head = 0;
-    xnet->thread->queue_tail = 0;
     xnet->thread->queue_size = 0;
     xnet->thread->shutdown = false;
 

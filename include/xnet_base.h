@@ -127,7 +127,6 @@ typedef struct xnet_task {
 
 typedef struct xnet_thread_group {
     int queue_head;
-    int queue_tail;
     int queue_size;
     pthread_t threads[XNET_THREAD_COUNT];
     pthread_mutex_t main_lock;
