@@ -119,6 +119,7 @@ typedef struct xnet_network_group {
 
 typedef struct xnet_task {
     int task_count;
+    pthread_mutex_t task_lock;
     int (*task_function)(xnet_box_t *xnet, xnet_active_connection_t *me);
     xnet_box_t *xnet;
     xnet_active_connection_t *me;
@@ -131,7 +132,7 @@ typedef struct xnet_thread_group {
     pthread_t threads[XNET_THREAD_COUNT];
     pthread_mutex_t main_lock;
     pthread_cond_t main_condition;
-    xnet_task_t task_queue[XNET_THREAD_MAX_TASKS];
+    xnet_task_t *task_queue[XNET_THREAD_MAX_TASKS];
     bool shutdown;
 } xnet_thread_group_t ;
 

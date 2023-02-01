@@ -518,22 +518,20 @@ static void xnet_default_on_client_send(xnet_box_t *xnet, xnet_active_connection
 
     /* If opcode is supported, call requested feature's function. */
     if (NULL != xnet->general->perform[current_op]) {
-        /* If opcode failed internally, display error message for the action. */
-        // int action_result = xnet->general->perform[current_op] (xnet, me);
+        /* Allocate new task. */
         xnet_task_t *new_task = calloc(1, sizeof(xnet_task_t));
         if (NULL == new_task) {
             fprintf(stderr, "Server is out of memory. Breaking out.\n");
             xnet_shutdown(xnet);
         }
 
+        /* Configure new task and submit for work. */
         new_task->task_function = xnet->general->perform[current_op];
         new_task->xnet = xnet;
         new_task->me = me;
+        pthread_mutex_init(&new_task->task_lock, NULL);
 
         xnet_work_push(xnet, new_task);
-        // if (-1 == action_result) {
-        //     fprintf(stderr, "The performing action for opcode [%d] failed.\n", current_op);
-        // }
     } else {
         fprintf(stderr, "Unsupported opcode [%d] detected. Ignoring request.\n", current_op);
     }

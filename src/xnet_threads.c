@@ -1,5 +1,7 @@
 #include "xnet_threads.h"
 
+static void task_decrement_ref_count(xnet_task_t *task);
+
 void xnet_create_pool(xnet_box_t *xnet)
 {
     pthread_mutex_init(&xnet->thread->main_lock, NULL);
@@ -36,17 +38,9 @@ void *xnet_thread_worker(void *arg)
         task->task_function(task->xnet, task->me);
         task->me->is_working = false;
 
-        /* Vulnerable reference decrement and free. */
-        pthread_mutex_lock(&xnet->thread->main_lock);
-        task->task_count--;
-        printf("%d\n", task->task_count);
-        if (0 == task->task_count) {
-            nfree((void **)&task);
-        }
-        puts("passed");
-        pthread_mutex_unlock(&xnet->thread->main_lock);
+        /* Vulnerable reference decrement. */
+        task_decrement_ref_count(task);
     }
-
     return NULL;
 }
 
@@ -66,16 +60,15 @@ void xnet_work_push(xnet_box_t *xnet, xnet_task_t *task)
     }
 
     /* This is a newly alloc'd task. Update its task count. */
-    task->task_count = 1;
+    task->task_count = 0;
 
     /* Find the next available index, and insert task. Update size appropriately. */
     size_t next_task = (xnet->thread->queue_head + xnet->thread->queue_size) % XNET_THREAD_MAX_TASKS;
-    xnet->thread->task_queue[next_task] = *task;
+    xnet->thread->task_queue[next_task] = task;
     xnet->thread->queue_size++;
 
     /* Signal condition for newly added task. */
     pthread_cond_signal(&xnet->thread->main_condition);
-
     pthread_mutex_unlock(&xnet->thread->main_lock);
 }
 
@@ -94,7 +87,7 @@ xnet_task_t *xnet_work_pop(xnet_box_t *xnet)
     }
 
     /* Grab the top-most task. */
-    xnet_task_t *task = &xnet->thread->task_queue[xnet->thread->queue_head];
+    xnet_task_t *task = xnet->thread->task_queue[xnet->thread->queue_head];
     task->task_count++;
 
     /* Inform queue of removed task. */
@@ -128,4 +121,17 @@ void xnet_destroy_pool(xnet_box_t *xnet)
 
     pthread_mutex_destroy(&xnet->thread->main_lock);
     pthread_cond_destroy(&xnet->thread->main_condition);
+}
+
+static void task_decrement_ref_count(xnet_task_t *task)
+{
+    pthread_mutex_lock(&task->task_lock);
+    task->task_count--;
+    if (0 == task->task_count) {
+        pthread_mutex_unlock(&task->task_lock);
+        pthread_mutex_destroy(&task->task_lock);
+        nfree((void **)&task);
+        return;
+    }
+    pthread_mutex_unlock(&task->task_lock);
 }
