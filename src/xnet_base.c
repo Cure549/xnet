@@ -148,7 +148,7 @@ int xnet_start(xnet_box_t *xnet)
     /* Create dispositions for SIGINT and SIGQUIT. */
     xnet_signal_disposition(xnet);
 
-    /* Create threadpool AFTER signal dispositions. This is to ensure main thread receives signal. */
+    /* Create threadpool AFTER signal dispositions. This is to ensure main thread properly handles signals. */
     xnet_create_pool(xnet);
 
     /* Apply default event functions if not overridden. */
@@ -164,6 +164,9 @@ int xnet_start(xnet_box_t *xnet)
 
     /* XNET CONNECTION LOOP */
     xnet_listen_loop(xnet);
+
+    /* Call only if threads were spawned. It's possible to reach xnet_destroy() without threads being spawned. */
+    xnet_destroy_pool(xnet);
 
     return 0;
 
@@ -203,9 +206,8 @@ int xnet_destroy(xnet_box_t *xnet)
         goto handle_err;
     }
 
-    /* Userbase and threadpool need special treatment due to child allocations. */
+    /* Userbase needs special treatment due to child allocations. */
     xnet_destroy_userbase(xnet->userbase);
-    xnet_destroy_pool(xnet);
 
     /* Free all allocations related to a XNet server. */
     nfree((void **)&xnet->general);
