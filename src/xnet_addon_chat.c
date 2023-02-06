@@ -18,12 +18,16 @@ int chat_perform_send_msg(xnet_box_t *xnet, xnet_active_connection_t *client)
 {
     // pthread_mutex_lock(&main_mutex);
     puts("entered chat_perform_send_msg");
+    chat_send_msg_root_t packet_root = {0};
+    read(client->client_event.data.fd, &packet_root.from_client, sizeof(packet_root.from_client));
+    printf("%d (%s)\n", ntohl(packet_root.from_client.length), packet_root.from_client.msg);
     usleep(3000000);
     // (void)xnet;
     // puts("send_msg");
-    // chat_send_msg_root_t packet_root = {0};
-    // read(client->client_event.data.fd, &packet_root.from_client, sizeof(packet_root.from_client));
-    // printf("%d (%s)\n", ntohl(packet_root.from_client.length), packet_root.from_client.msg);
+
+    int t = send(client->client_event.data.fd, "SERVER RESP", 11, 0);
+    printf("%d\n", t);
+
     // xnet_create_user(xnet->userbase, (char *)"admin", (char *)"password", 3);
     (void)xnet;
     (void)client;

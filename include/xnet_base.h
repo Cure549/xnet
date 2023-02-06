@@ -53,7 +53,7 @@ extern "C" {
 #define XNET_MAX_PACKET_BUF_SZ       8192
 
 #define XNET_THREAD_COUNT            5
-#define XNET_THREAD_MAX_TASKS       256
+#define XNET_THREAD_MAX_TASKS        256
 
 typedef struct xnet_box {
     struct xnet_general_group *general;
@@ -120,9 +120,9 @@ typedef struct xnet_network_group {
 typedef struct xnet_task {
     int task_count;
     pthread_mutex_t task_lock;
-    int (*task_function)(xnet_box_t *xnet, xnet_active_connection_t *me);
     xnet_box_t *xnet;
     xnet_active_connection_t *me;
+    int (*task_function)(xnet_box_t *xnet, xnet_active_connection_t *me);
 } xnet_task_t ;
 
 typedef struct xnet_thread_group {
