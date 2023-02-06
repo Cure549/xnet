@@ -1,2 +1,3 @@
 .vscode/
 vgcore.*
+__pycache__/
