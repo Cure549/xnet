@@ -25,3 +25,33 @@ class SendMessageOP(BasePacket):
     
     def deconstruct(self):
         pass
+
+
+class JoinRoomOP(BasePacket):
+    opcode = 201
+
+    def __init__(self, data):
+        self.msg = data
+        self.msg_len = len(self.msg)
+
+    def construct(self):
+        packet = ""
+        return packet
+
+    def deconstruct(self):
+        pass
+
+
+class SendRoomMessageOP(BasePacket):
+    opcode = 201
+
+    def __init__(self, data):
+        self.msg = data
+        self.msg_len = len(self.msg)
+
+    def construct(self):
+        packet = ""
+        return packet
+
+    def deconstruct(self):
+        pass
