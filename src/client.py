@@ -10,15 +10,11 @@ class Client(cmd.Cmd):
         self.sock = None
         self.recv_thread = None
 
-    def postloop(self):
-        print("jkl")
-
     def emptyline(self):
         pass
 
 
     def do_connect(self, args):
-        'Move the turtle forward by the specified distance:  FORWARD 10'
         host, port = args.split()
         port = int(port)
 
@@ -33,7 +29,7 @@ class Client(cmd.Cmd):
         except Exception as e:
             print(f'Failed to connect to {host}:{port}: {e}')
 
-    def do_disconnect(self, _):
+    def do_quit(self, _):
         if self.sock:
             self.sock.close()
             self.sock = None
@@ -50,15 +46,17 @@ class Client(cmd.Cmd):
                 break
             print()
             print(f'Received: {message.decode().strip()}\n{self.prompt}', end="")
-            # print(self.prompt, end="")
 
-    def do_send(self, message):
+    def do_whisper(self, message):
         if self.sock:
             send_obj = SendMessageOP(message)
             self.sock.sendall(send_obj.construct())
             print(f'Sent: {message}')
         else:
             print('Not connected to any server')
+
+    def do_shout(self, message):
+        pass
 
 
 if __name__ == '__main__':

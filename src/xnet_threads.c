@@ -37,6 +37,13 @@ void *xnet_thread_worker(void *arg)
         task->task_function(task->xnet, task->me);
         task->me->is_working = false;
 
+        /* Reset client's file descriptor. */
+        int event_status = epoll_ctl_mod(xnet->network->epoll_fd, &task->me->client_event, task->me->socket, EPOLLIN | EPOLLONESHOT);
+        if (-1 == event_status) {
+            fprintf(stderr, "Failed to add socket fd to epoll event. Dropping connection.\n");
+            close(task->me->socket);
+        }
+
         /* Vulnerable reference decrement. */
         task_decrement_ref_count(task);
     }

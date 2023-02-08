@@ -292,6 +292,19 @@ int epoll_ctl_add(int epoll_fd, struct epoll_event *an_event, int fd, uint32_t e
     return result;
 }
 
+int epoll_ctl_mod(int epoll_fd, struct epoll_event *an_event, int fd, uint32_t event_list)
+{
+	if (NULL == an_event) {
+		fprintf(stderr, "No event given.\n");
+		return -1;
+    }
+
+    an_event->events = event_list;
+    an_event->data.fd = fd;
+    int result = epoll_ctl(epoll_fd, EPOLL_CTL_MOD, fd, an_event);
+    return result;
+}
+
 int xnet_insert_feature(xnet_box_t *xnet, size_t opcode, int (*new_perform)(xnet_box_t *xnet, xnet_active_connection_t *client))
 {
 	int err = -1;

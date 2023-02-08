@@ -247,7 +247,6 @@ static void xnet_listen_loop(xnet_box_t *xnet)
             /* If event triggers and was matched to a client socket, we are working with a client request. */
             } else if (NULL != xnet_get_conn_by_socket(xnet, current_event)) {
                 xnet_active_connection_t *noisy_client = xnet_get_conn_by_socket(xnet, current_event);
-                
                 xnet->general->on_client_send(xnet, noisy_client);
 
             /* If event triggers on any other fd within the event array, it is a session's fd. */
@@ -480,7 +479,7 @@ static void xnet_default_on_connection_attempt(xnet_box_t *xnet)
     }
 
     /* Add client socket fd to epoll's event list. */
-    int event_status = epoll_ctl_add(xnet->network->epoll_fd, &new_client->client_event, client_socket, EPOLLIN);
+    int event_status = epoll_ctl_add(xnet->network->epoll_fd, &new_client->client_event, client_socket, EPOLLIN | EPOLLONESHOT);
     if (-1 == event_status) {
         fprintf(stderr, "Failed to add socket fd to epoll event. Dropping connection.\n");
         close(client_socket);
@@ -506,6 +505,7 @@ static void xnet_default_on_terminate_signal(xnet_box_t *xnet)
 static void xnet_default_on_client_send(xnet_box_t *xnet, xnet_active_connection_t *me)
 {
     short current_op = xnet_get_opcode(xnet, me->client_event.data.fd);
+
     /* Check EOF */
     if (0 == current_op) {
         return;
@@ -535,11 +535,10 @@ static void xnet_default_on_client_send(xnet_box_t *xnet, xnet_active_connection
 
         xnet_work_push(xnet, new_task);
     } else {
+        /* Flush out any remaining data in buffer. */
         fprintf(stderr, "Unsupported opcode [%d] detected. Ignoring request.\n", current_op);
+        flush_buffer(me->client_event.data.fd);
     }
-
-    /* Flush out any remaining data in buffer. This naturally flushes any unsupported opcode. */
-    flush_buffer(me->client_event.data.fd);
     
     return;
 }

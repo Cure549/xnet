@@ -64,6 +64,8 @@ short xnet_get_opcode(xnet_box_t *xnet, int client_fd);
 
 int epoll_ctl_add(int epoll_fd, struct epoll_event *an_event, int fd, uint32_t event_list);
 
+int epoll_ctl_mod(int epoll_fd, struct epoll_event *an_event, int fd, uint32_t event_list);
+
 int xnet_insert_feature(xnet_box_t *xnet, size_t opcode, int (*new_perform)(xnet_box_t *xnet, xnet_active_connection_t *client));
 
 int xnet_blacklist_feature(xnet_box_t *xnet, size_t opcode);

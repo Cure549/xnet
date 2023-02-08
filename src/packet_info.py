@@ -21,6 +21,7 @@ class SendMessageOP(BasePacket):
 
     def construct(self):
         packet = struct.pack(f'!Hi{self.msg_len}s', SendMessageOP.opcode, self.msg_len, self.msg.encode('utf-8'))
+        print(packet)
         return packet
     
     def deconstruct(self):
@@ -28,7 +29,7 @@ class SendMessageOP(BasePacket):
 
 
 class JoinRoomOP(BasePacket):
-    opcode = 201
+    opcode = 202
 
     def __init__(self, data):
         self.msg = data
@@ -43,7 +44,7 @@ class JoinRoomOP(BasePacket):
 
 
 class SendRoomMessageOP(BasePacket):
-    opcode = 201
+    opcode = 203
 
     def __init__(self, data):
         self.msg = data
