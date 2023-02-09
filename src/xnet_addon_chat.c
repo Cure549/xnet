@@ -1,37 +1,126 @@
 #include "xnet_addon_chat.h"
 
 chat_main_t chat_base;
-pthread_mutex_t main_mutex;
+pthread_mutex_t chat_lock;
 
 static int assign_user_to_room(xnet_active_connection_t *client, char *room_name);
 
 int xnet_integrate_chat_addon(xnet_box_t *xnet)
 {
-    xnet_insert_feature(xnet, 201, chat_perform_send_msg);
+    xnet_insert_feature(xnet, 200, chat_perform_login);
+    xnet_insert_feature(xnet, 201, chat_perform_whisper);
     xnet_insert_feature(xnet, 202, chat_perform_join_room);
-    xnet_insert_feature(xnet, 203, chat_perform_debug);
-    pthread_mutex_init(&main_mutex, NULL);
+    xnet_insert_feature(xnet, 210, chat_perform_debug);
+    pthread_mutex_init(&chat_lock, NULL);
     return 0;
 }
 
-int chat_perform_send_msg(xnet_box_t *xnet, xnet_active_connection_t *client)
+int chat_perform_login(xnet_box_t *xnet, xnet_active_connection_t *client)
 {
-    // pthread_mutex_lock(&main_mutex);
-    puts("entered chat_perform_send_msg");
-    chat_send_msg_root_t packet_root = {0};
-    read(client->socket, &packet_root.from_client, sizeof(packet_root.from_client));
+    int return_code = RC_ACTION_SUCCESS;
 
-    printf("%d (%s)\n", ntohl(packet_root.from_client.length), packet_root.from_client.msg);
-    usleep(3000000);
-    // (void)xnet;
+    printf("Socket [%d] is performing 'chat_perform_login()'\n", client->socket);
 
-    send(client->client_event.data.fd, "SERVER RESP", 11, 0);
+    chat_login_packet_t packets = {0};
+    read(client->socket, &packets.from_client.username_length, sizeof(int));
 
-    // xnet_create_user(xnet->userbase, (char *)"admin", (char *)"password", 3);
-    (void)xnet;
-    puts("leaving chat_perform_send_msg");
-    
-    // pthread_mutex_unlock(&main_mutex);
+    /* Ensure username is proper length. */
+    packets.from_client.username_length = ntohl(packets.from_client.username_length);
+    if (XNET_MAX_USERNAME_LEN < packets.from_client.username_length) {
+        return_code = RC_FAILED_LOGIN;
+        goto return_packet;
+    }
+
+    read(client->socket, &packets.from_client.username, packets.from_client.username_length);
+
+    read(client->socket, &packets.from_client.password_length, sizeof(int));
+
+    /* Ensure password is proper length. */
+    packets.from_client.password_length = ntohl(packets.from_client.password_length);
+    if (XNET_MAX_PASSWD_LEN < packets.from_client.password_length) {
+        return_code = RC_FAILED_LOGIN;
+        goto return_packet;
+    }
+
+    read(client->socket, &packets.from_client.password, packets.from_client.password_length);
+
+    /* Attempt to login to account. */
+    int login_attempt = xnet_login_user(xnet->userbase, packets.from_client.username, packets.from_client.password, client);
+    if (0 != login_attempt) {
+        return_code = RC_FAILED_LOGIN;
+        goto return_packet;
+    }
+
+/* Send feedback to client. */
+return_packet:
+    packets.to_client.return_code = htonl(return_code);
+    send(client->socket, &packets.to_client, sizeof(packets.to_client), 0);
+
+    printf("Socket [%d] finished performing 'chat_perform_login()'\n", client->socket);
+    return 0;
+}
+
+int chat_perform_whisper(xnet_box_t *xnet, xnet_active_connection_t *client)
+{
+    int return_code = 0;
+
+    printf("Socket [%d] is performing 'chat_perform_whisper()'\n", client->socket);
+
+    chat_whisper_packet_t packets = {0};
+
+    if (false == client->account->is_logged_in) {
+        return_code = RC_FAILED_WHISPER;
+        goto return_packet;
+    }
+
+    /* ----- CAPTURE WHISPER DATA FROM THE INITIATING CLIENT ----- */
+    read(client->socket, &packets.from_client.to_username_length, sizeof(int));
+
+    /* Ensure username is proper length. */
+    packets.from_client.to_username_length = ntohl(packets.from_client.to_username_length);
+    if (XNET_MAX_USERNAME_LEN < packets.from_client.to_username_length) {
+        return_code = RC_FAILED_WHISPER;
+        goto return_packet;
+    }
+
+    read(client->socket, &packets.from_client.to_username, packets.from_client.to_username_length);
+
+    /* Ensure message length is within the limit. */
+    read(client->socket, &packets.from_client.msg_length, sizeof(int));
+    packets.from_client.msg_length = ntohl(packets.from_client.msg_length);
+    if (MAX_MESSAGE_LENGTH < packets.from_client.msg_length) {
+        return_code = RC_FAILED_WHISPER;
+        goto return_packet;
+    }
+
+    read(client->socket, &packets.from_client.msg, packets.from_client.msg_length);
+    /* ----------------------------------------------------------- */
+
+    /* ----- TRY TO SEND MESSAGE TO DESIRED USER ----- */
+    xnet_active_connection_t *desired_user = xnet_get_conn_by_user(xnet, packets.from_client.to_username);
+    if (NULL == desired_user) {
+        return_code = RC_FAILED_WHISPER;
+        goto return_packet;
+    }
+
+    /* Create packet details */
+    strncpy(packets.to_target.from_username, client->account->username, XNET_MAX_USERNAME_LEN);
+    packets.to_target.from_username_length = strnlen(packets.to_target.from_username, XNET_MAX_USERNAME_LEN);
+    strncpy(packets.to_target.msg, packets.from_client.msg, MAX_MESSAGE_LENGTH);
+    packets.to_target.msg_length = packets.from_client.msg_length;
+
+    send(desired_user->socket, &packets.to_target, sizeof(packets.to_target), 0);
+
+    /* ----------------------------------------------- */
+
+
+
+    /* Send feedback to client. */
+return_packet:
+    packets.to_client.return_code = htonl(return_code);
+    send(client->socket, &packets.to_client, sizeof(packets.to_client), 0);
+
+    printf("Socket [%d] finished performing 'chat_perform_whisper()'\n", client->socket);
     return 0;
 }
 
@@ -110,6 +199,12 @@ static int assign_user_to_room(xnet_active_connection_t *client, char *room_name
 
     if (NULL == room_name) {
         err = E_GEN_NULL_PTR;
+        goto handle_err;
+    }
+
+    /* Require client to be logged in. */
+    if (false == client->account->is_logged_in) {
+        err = E_GEN_OUT_RANGE;
         goto handle_err;
     }
 

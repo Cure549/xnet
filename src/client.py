@@ -1,7 +1,7 @@
 import cmd
 import socket
 import threading
-from packet_info import SendMessageOP
+from packet_info import WhisperOP, LoginOP
 
 class Client(cmd.Cmd):
     def __init__(self):
@@ -12,7 +12,6 @@ class Client(cmd.Cmd):
 
     def emptyline(self):
         pass
-
 
     def do_connect(self, args):
         host, port = args.split()
@@ -39,24 +38,36 @@ class Client(cmd.Cmd):
 
     def receive_messages(self, sock):
         while True:
-            message = sock.recv(1024)
+            message = sock.recv(8192)
             if not message:
                 print('Connection lost')
                 self.sock = None
                 break
             print()
-            print(f'Received: {message.decode().strip()}\n{self.prompt}', end="")
+            # print(f'Received: {message.decode().strip()}\n{self.prompt}', end="")
+            print(f'Received: {message}\n{self.prompt}', end="")
 
-    def do_whisper(self, message):
+    def do_whisper(self, args):
+        user, msg = args.split()
         if self.sock:
-            send_obj = SendMessageOP(message)
+            send_obj = WhisperOP(user, msg)
             self.sock.sendall(send_obj.construct())
-            print(f'Sent: {message}')
+            print(f'Sent: {user} {msg}')
         else:
             print('Not connected to any server')
 
     def do_shout(self, message):
         pass
+
+    def do_login(self, creds):
+        username, password = creds.split()
+        if self.sock:
+            send_obj = LoginOP(username, password)
+            self.sock.sendall(send_obj.construct())
+            print("Attempted login.")
+        else:
+            print('Not connected to any server')
+
 
 
 if __name__ == '__main__':

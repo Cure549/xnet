@@ -20,13 +20,17 @@ extern "C" {
 #include "xnet_threads.h"
 #include "xnet_userbase.h"
 
-/* 
-- Chat send message
-- Create rooms with chat_create_room();
-*/
 #define MAX_USERS_IN_ROOM 5
 #define MAX_ROOM_COUNT 5
 #define MAX_ROOM_NAME_LEN 32
+#define MAX_MESSAGE_LENGTH 256
+
+/* Return Codes */
+#define RC_ACTION_SUCCESS 0
+#define RC_FAILED_LOGIN 1
+#define RC_FAILED_JOIN_ROOM 2
+#define RC_FAILED_WHISPER 3
+#define RC_FAILED_SHOUT 4
 
 typedef struct chat_data_room {
     const char *name;
@@ -37,20 +41,45 @@ typedef struct chat_data_main {
     chat_room_t rooms[MAX_ROOM_COUNT];
 } chat_main_t ;
 
-struct __attribute__((__packed__)) chat_send_msg_tc {
-    int length;
-    char msg[2048];
+struct __attribute__((__packed__)) chat_whisper_tc {
+    int return_code;
 };
 
-struct __attribute__((__packed__)) chat_send_msg_fc {
-    int length;
-    char msg[2048];
+struct __attribute__((__packed__)) chat_whisper_fc {
+    int to_username_length;
+    char to_username[XNET_MAX_USERNAME_LEN];
+    int msg_length;
+    char msg[MAX_MESSAGE_LENGTH];
 };
 
-typedef struct __attribute__((__packed__)) chat_send_msg_root {
-    struct chat_send_msg_tc to_client;
-    struct chat_send_msg_fc from_client;
-} chat_send_msg_root_t ;
+struct __attribute__((__packed__)) chat_whisper_tt {
+    int from_username_length;
+    char from_username[XNET_MAX_USERNAME_LEN];
+    int msg_length;
+    char msg[MAX_MESSAGE_LENGTH];
+};
+
+typedef struct chat_whisper_packet {
+    struct chat_whisper_tc to_client;
+    struct chat_whisper_fc from_client;
+    struct chat_whisper_tt to_target;
+} chat_whisper_packet_t ;
+
+struct __attribute__((__packed__)) chat_login_tc {
+    int return_code;
+};
+
+struct __attribute__((__packed__)) chat_login_fc {
+    int username_length;
+    char username[XNET_MAX_USERNAME_LEN];
+    int password_length;
+    char password[XNET_MAX_PASSWD_LEN];
+};
+
+typedef struct chat_login_packet {
+    struct chat_login_tc to_client;
+    struct chat_login_fc from_client;
+} chat_login_packet_t ;
 
 /**
  * @brief Responsible for integrating the chat addon into a XNet server.
@@ -61,14 +90,16 @@ typedef struct __attribute__((__packed__)) chat_send_msg_root {
  */
 int xnet_integrate_chat_addon(xnet_box_t *xnet);
 
+int chat_perform_login(xnet_box_t *xnet, xnet_active_connection_t *client);
+
 /**
- * @brief Feature that supports client-to-client communication.
+ * @brief Feature that allows a client to send a message to another client.
  * 
  * @param xnet 
  * @param client 
  * @return int 
  */
-int chat_perform_send_msg(xnet_box_t *xnet, xnet_active_connection_t *client);
+int chat_perform_whisper(xnet_box_t *xnet, xnet_active_connection_t *client);
 
 int chat_perform_join_room(xnet_box_t *xnet, xnet_active_connection_t *client);
 
