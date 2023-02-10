@@ -1,7 +1,9 @@
 import cmd
 import socket
 import threading
+import array
 from packet_info import WhisperOP, LoginOP
+from client_utils import get_return_codes
 
 class Client(cmd.Cmd):
     def __init__(self):
@@ -9,6 +11,7 @@ class Client(cmd.Cmd):
         self.prompt = '$ '
         self.sock = None
         self.recv_thread = None
+        self.codes = get_return_codes()
 
     def emptyline(self):
         pass
@@ -43,9 +46,12 @@ class Client(cmd.Cmd):
                 print('Connection lost')
                 self.sock = None
                 break
-            print()
-            # print(f'Received: {message.decode().strip()}\n{self.prompt}', end="")
-            print(f'Received: {message}\n{self.prompt}', end="")
+            if len(message) == 2:
+                code = array.array("h", message)
+                print(f"{self.codes[code.pop()]}\n{self.prompt}", end="")
+            else:
+                print(f'Received: {message.decode()}\n{self.prompt}', end="")
+            
 
     def do_whisper(self, args):
         user, msg = args.split()
@@ -64,7 +70,7 @@ class Client(cmd.Cmd):
         if self.sock:
             send_obj = LoginOP(username, password)
             self.sock.sendall(send_obj.construct())
-            print("Attempted login.")
+            # print("Attempted login.")
         else:
             print('Not connected to any server')
 

@@ -20,7 +20,6 @@ class LoginOP(BasePacket):
         self.username_len = len(self.username)
         self.password = password
         self.password_len = len(self.password)
-        self.return_code = -1
 
     def construct(self):
         format = f'!Hi{self.username_len}si{self.password_len}s'

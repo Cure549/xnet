@@ -42,7 +42,7 @@ typedef struct chat_data_main {
 } chat_main_t ;
 
 struct __attribute__((__packed__)) chat_whisper_tc {
-    int return_code;
+    short return_code;
 };
 
 struct __attribute__((__packed__)) chat_whisper_fc {
@@ -66,7 +66,7 @@ typedef struct chat_whisper_packet {
 } chat_whisper_packet_t ;
 
 struct __attribute__((__packed__)) chat_login_tc {
-    int return_code;
+    short return_code;
 };
 
 struct __attribute__((__packed__)) chat_login_fc {
