@@ -120,7 +120,7 @@ int chat_perform_whisper(xnet_box_t *xnet, xnet_active_connection_t *client)
     /* Send feedback to client. */
 return_packet:
     packets.to_client.opcode_relation = htons(CHAT_WHISPER_OP);
-    packets.to_client.return_code = return_code;
+    packets.to_client.return_code = htons(return_code);
     send(client->socket, &packets.to_client, sizeof(packets.to_client), 0);
 
     printf("Socket [%d] finished performing 'chat_perform_whisper()' with code [%d]\n", client->socket, return_code);

@@ -1,6 +1,9 @@
 import struct
 from packet_info import LoginOP, WhisperOP, JoinRoomOP, ShoutOP
 
+def fixed_print(message):
+    print(f"{message}\n$ ", end="")
+
 def get_return_codes():
     codes = {
         0: "Action successful",
@@ -35,14 +38,14 @@ def deconstruct_login(data):
     format_size = struct.calcsize(format)
     return_code = struct.unpack(format, data[:format_size])[1]
 
-    print(get_return_codes()[return_code])
+    fixed_print(get_return_codes()[return_code])
 
 def deconstruct_whisper(data):
     format = "!hh"
     format_size = struct.calcsize(format)
     return_code = struct.unpack(format, data[:format_size])[1]
 
-    print(get_return_codes()[return_code])
+    fixed_print(get_return_codes()[return_code])
 
 
 def deconstruct_whisper_target(data):
@@ -53,4 +56,4 @@ def deconstruct_whisper_target(data):
     from_user = whisper_info[2].decode("utf-8")
     message = whisper_info[4].decode("utf-8")
 
-    print(f"[From {from_user}] : {message}")
+    fixed_print(f"[From {from_user}] : {message}")

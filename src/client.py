@@ -3,7 +3,7 @@ import socket
 import threading
 import array
 from packet_info import WhisperOP, LoginOP
-from client_utils import get_return_codes, unpack_server_response
+from client_utils import get_return_codes, unpack_server_response, fixed_print
 
 class Client(cmd.Cmd):
     def __init__(self):
@@ -24,26 +24,25 @@ class Client(cmd.Cmd):
         port = int(port)
 
         if (self.is_connected):
-            print("Already connected.")
+            fixed_print("Already connected.")
             return False
 
         try:
             self.sock = socket.socket(socket.AF_INET, socket.SOCK_STREAM)
             self.sock.connect((host, port))
             print(f'Successfully connected to {host}:{port}')
-            self.prompt = "[!] $ "
             self.recv_thread = threading.Thread(
                 target=self.receive_messages)
             self.recv_thread.start()
             self.is_connected = True
         except Exception as e:
-            print(f'Failed to connect to {host}:{port}: {e}')
+            fixed_print(f'Failed to connect to {host}:{port}: {e}')
 
     def do_quit(self, _):
         if self.is_connected:
             self.sock.close()
             self.sock = None
-            print('Disconnected from server')
+            fixed_print('Disconnected from server')
             self.recv_thread.join()
             return True
         else:
@@ -63,7 +62,7 @@ class Client(cmd.Cmd):
             except OSError:
                 # print("os")
                 self.is_connected = False
-                print("Connection lost")
+                fixed_print("Connection lost")
             # if not message:
             #     continue
                 # print('Connection lost')
@@ -80,7 +79,7 @@ class Client(cmd.Cmd):
                 self.sock.close()
                 self.sock = None
                 self.is_connected = False
-                print("Session Expired.")
+                fixed_print("Session Expired.")
         
             
 
@@ -89,9 +88,8 @@ class Client(cmd.Cmd):
         if self.sock:
             send_obj = WhisperOP(user, msg)
             self.sock.sendall(send_obj.construct())
-            print(f'Sent: {user} {msg}')
         else:
-            print('Not connected to any server')
+            fixed_print('Not connected to any server')
 
     def do_shout(self, message):
         pass
@@ -102,7 +100,7 @@ class Client(cmd.Cmd):
             send_obj = LoginOP(username, password)
             self.sock.sendall(send_obj.construct())
         else:
-            print('Not connected to any server')
+            fixed_print('Not connected to any server')
 
 
 if __name__ == '__main__':
