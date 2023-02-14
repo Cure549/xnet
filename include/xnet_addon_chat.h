@@ -20,6 +20,14 @@ extern "C" {
 #include "xnet_threads.h"
 #include "xnet_userbase.h"
 
+/* Addon Feature Opcodes */
+#define CHAT_LOGIN_OP 200
+#define CHAT_WHISPER_OP 201
+#define CHAT_WHISPER_TARGET 299
+#define CHAT_JOIN_OP 202
+#define CHAT_DEBUG_OP 210
+
+/* Addon Configuration */
 #define MAX_USERS_IN_ROOM 5
 #define MAX_ROOM_COUNT 5
 #define MAX_ROOM_NAME_LEN 32
@@ -42,6 +50,7 @@ typedef struct chat_data_main {
 } chat_main_t ;
 
 struct __attribute__((__packed__)) chat_whisper_tc {
+    short opcode_relation;
     short return_code;
 };
 
@@ -53,6 +62,7 @@ struct __attribute__((__packed__)) chat_whisper_fc {
 };
 
 struct __attribute__((__packed__)) chat_whisper_tt {
+    short opcode_relation;
     int from_username_length;
     char from_username[XNET_MAX_USERNAME_LEN];
     int msg_length;
@@ -66,6 +76,7 @@ typedef struct chat_whisper_packet {
 } chat_whisper_packet_t ;
 
 struct __attribute__((__packed__)) chat_login_tc {
+    short opcode_relation;
     short return_code;
 };
 

@@ -7,10 +7,10 @@ static int assign_user_to_room(xnet_active_connection_t *client, char *room_name
 
 int xnet_integrate_chat_addon(xnet_box_t *xnet)
 {
-    xnet_insert_feature(xnet, 200, chat_perform_login);
-    xnet_insert_feature(xnet, 201, chat_perform_whisper);
-    xnet_insert_feature(xnet, 202, chat_perform_join_room);
-    xnet_insert_feature(xnet, 210, chat_perform_debug);
+    xnet_insert_feature(xnet, CHAT_LOGIN_OP, chat_perform_login);
+    xnet_insert_feature(xnet, CHAT_WHISPER_OP, chat_perform_whisper);
+    xnet_insert_feature(xnet, CHAT_JOIN_OP, chat_perform_join_room);
+    xnet_insert_feature(xnet, CHAT_DEBUG_OP, chat_perform_debug);
     pthread_mutex_init(&chat_lock, NULL);
     return 0;
 }
@@ -53,10 +53,11 @@ int chat_perform_login(xnet_box_t *xnet, xnet_active_connection_t *client)
 
 /* Send feedback to client. */
 return_packet:
+    packets.to_client.opcode_relation = htons(CHAT_LOGIN_OP);
     packets.to_client.return_code = htons(return_code);
     send(client->socket, &packets.to_client, sizeof(packets.to_client), 0);
 
-    printf("Socket [%d] finished performing 'chat_perform_whisper()' with code [%d]\n", client->socket, return_code);
+    printf("Socket [%d] finished performing 'chat_perform_login()' with code [%d]\n", client->socket, return_code);
     return 0;
 }
 
@@ -104,10 +105,11 @@ int chat_perform_whisper(xnet_box_t *xnet, xnet_active_connection_t *client)
     }
 
     /* Create packet details */
+    packets.to_target.opcode_relation = htons(CHAT_WHISPER_TARGET);
     strncpy(packets.to_target.from_username, client->account->username, XNET_MAX_USERNAME_LEN);
-    packets.to_target.from_username_length = strnlen(packets.to_target.from_username, XNET_MAX_USERNAME_LEN);
+    packets.to_target.from_username_length = htonl(strnlen(packets.to_target.from_username, XNET_MAX_USERNAME_LEN));
     strncpy(packets.to_target.msg, packets.from_client.msg, MAX_MESSAGE_LENGTH);
-    packets.to_target.msg_length = packets.from_client.msg_length;
+    packets.to_target.msg_length = htonl(packets.from_client.msg_length);
 
     send(desired_user->socket, &packets.to_target, sizeof(packets.to_target), 0);
 
@@ -117,6 +119,7 @@ int chat_perform_whisper(xnet_box_t *xnet, xnet_active_connection_t *client)
 
     /* Send feedback to client. */
 return_packet:
+    packets.to_client.opcode_relation = htons(CHAT_WHISPER_OP);
     packets.to_client.return_code = return_code;
     send(client->socket, &packets.to_client, sizeof(packets.to_client), 0);
 

@@ -28,6 +28,14 @@ int xnet_create_user(xnet_userbase_group_t *base, char *user, char *pass, int ne
     xnet_user_t *prev = NULL;
     xnet_user_t *current = base->head;
 
+    /* Check if username and password length is invalid. */
+    int user_len = strnlen(user, XNET_MAX_USERNAME_LEN + 1);
+    int pass_len = strnlen(pass, XNET_MAX_PASSWD_LEN + 1);
+    if (XNET_MAX_USERNAME_LEN < user_len || XNET_MAX_PASSWD_LEN < pass_len) {
+        err = E_GEN_OUT_RANGE;
+        goto handle_err;
+    }
+
     /* Cant use xnet_user_exists() due to needing to keep track of previous node. */
     while (NULL != current) {
         /* If an account exists with same username, don't create user. */

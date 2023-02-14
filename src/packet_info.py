@@ -7,10 +7,6 @@ class BasePacket(ABC):
     @abstractmethod
     def construct(self):
         raise NotImplementedError
-    
-    @abstractmethod
-    def deconstruct(self):
-        raise NotImplementedError
 
 class LoginOP(BasePacket):
     opcode = 200
@@ -25,12 +21,12 @@ class LoginOP(BasePacket):
         format = f'!Hi{self.username_len}si{self.password_len}s'
         packet = struct.pack(format, LoginOP.opcode, self.username_len, self.username.encode('utf-8'), self.password_len, self.password.encode('utf-8'))
         return packet
-    
-    def deconstruct(self):
-        pass
 
 class WhisperOP(BasePacket):
     opcode = 201
+    im_target = 299
+    max_msg_length = 256
+    max_user_length = 32
 
     def __init__(self, to_user, data):
         self.to_user = to_user
@@ -43,9 +39,6 @@ class WhisperOP(BasePacket):
         packet = struct.pack(format, WhisperOP.opcode,
                              self.to_user_len, self.to_user.encode('utf-8'), self.msg_len, self.msg.encode('utf-8'))
         return packet
-    
-    def deconstruct(self):
-        pass
 
 
 class JoinRoomOP(BasePacket):
@@ -59,11 +52,8 @@ class JoinRoomOP(BasePacket):
         packet = ""
         return packet
 
-    def deconstruct(self):
-        pass
 
-
-class SendRoomMessageOP(BasePacket):
+class ShoutOP(BasePacket):
     opcode = 203
 
     def __init__(self, data):
@@ -73,6 +63,3 @@ class SendRoomMessageOP(BasePacket):
     def construct(self):
         packet = ""
         return packet
-
-    def deconstruct(self):
-        pass
