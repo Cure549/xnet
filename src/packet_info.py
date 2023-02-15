@@ -35,6 +35,9 @@ class WhisperOP(BasePacket):
         self.msg_len = len(self.msg)
 
     def construct(self):
+        if self.msg_len > WhisperOP.max_msg_length:
+            return
+
         format = f'!Hi{self.to_user_len}si{self.msg_len}s'
         packet = struct.pack(format, WhisperOP.opcode,
                              self.to_user_len, self.to_user.encode('utf-8'), self.msg_len, self.msg.encode('utf-8'))
@@ -45,11 +48,12 @@ class JoinRoomOP(BasePacket):
     opcode = 202
 
     def __init__(self, data):
-        self.msg = data
-        self.msg_len = len(self.msg)
+        self.room_name = data
+        self.room_name_len = len(self.room_name)
 
     def construct(self):
-        packet = ""
+        format = f"!Hi{self.room_name_len}s"
+        packet = struct.pack(format, JoinRoomOP.opcode, self.room_name_len, self.room_name.encode("utf-8"))
         return packet
 
 

@@ -23,9 +23,9 @@ extern "C" {
 /* Addon Feature Opcodes */
 #define CHAT_LOGIN_OP 200
 #define CHAT_WHISPER_OP 201
-#define CHAT_WHISPER_TARGET 299
 #define CHAT_JOIN_OP 202
-#define CHAT_DEBUG_OP 210
+#define CHAT_SHOUT_OP 203
+#define CHAT_WHISPER_TARGET 299
 
 /* Addon Configuration */
 #define MAX_USERS_IN_ROOM 5
@@ -48,6 +48,22 @@ typedef struct chat_data_room {
 typedef struct chat_data_main {
     chat_room_t rooms[MAX_ROOM_COUNT];
 } chat_main_t ;
+
+struct __attribute__((__packed__)) chat_join_room_tc {
+    short opcode_relation;
+    short return_code;
+};
+
+struct __attribute__((__packed__)) chat_join_room_fc {
+    int room_name_length;
+    char room_name[MAX_ROOM_NAME_LEN];
+};
+
+typedef struct chat_join_room_packet {
+    struct chat_join_room_tc to_client;
+    struct chat_join_room_fc from_client;
+} chat_join_room_packet_t ;
+
 
 struct __attribute__((__packed__)) chat_whisper_tc {
     short opcode_relation;
@@ -114,7 +130,7 @@ int chat_perform_whisper(xnet_box_t *xnet, xnet_active_connection_t *client);
 
 int chat_perform_join_room(xnet_box_t *xnet, xnet_active_connection_t *client);
 
-int chat_perform_debug(xnet_box_t *xnet, xnet_active_connection_t *client);
+int chat_perform_shout(xnet_box_t *xnet, xnet_active_connection_t *client);
 
 int chat_create_room(const char *room_name);
 

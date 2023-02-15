@@ -14,41 +14,43 @@ def get_return_codes():
     }
     return codes
 
-def unpack_server_response(data):
+def unpack_server_response(client, data):
     format = "!h"
     format_size = struct.calcsize(format)
     opcode = struct.unpack(format, data[:format_size])[0]
-    notify_deconstructor(opcode, data)
+    notify_deconstructor(client, opcode, data)
 
-def notify_deconstructor(opcode, data):
+def notify_deconstructor(client, opcode, data):
     features = {
         LoginOP.opcode: deconstruct_login,
         WhisperOP.opcode: deconstruct_whisper,
         WhisperOP.im_target: deconstruct_whisper_target,
-        JoinRoomOP.opcode: JoinRoomOP,
+        JoinRoomOP.opcode: deconstruct_join_op,
         ShoutOP.opcode: ShoutOP,
     }
 
     deconstructor_idx = list(features.keys()).index(opcode)
 
-    list(features.values())[deconstructor_idx](data)
+    list(features.values())[deconstructor_idx](client, data)
 
-def deconstruct_login(data):
+def deconstruct_login(client, data):
+    format = "!hh"
+    format_size = struct.calcsize(format)
+    return_code = struct.unpack(format, data[:format_size])[1]
+    if 0 == return_code:
+        client.is_logged_in = True
+
+    fixed_print(get_return_codes()[return_code])
+
+def deconstruct_whisper(client, data):
     format = "!hh"
     format_size = struct.calcsize(format)
     return_code = struct.unpack(format, data[:format_size])[1]
 
     fixed_print(get_return_codes()[return_code])
 
-def deconstruct_whisper(data):
-    format = "!hh"
-    format_size = struct.calcsize(format)
-    return_code = struct.unpack(format, data[:format_size])[1]
 
-    fixed_print(get_return_codes()[return_code])
-
-
-def deconstruct_whisper_target(data):
+def deconstruct_whisper_target(client, data):
     format = f"!hi{WhisperOP.max_user_length}si{WhisperOP.max_msg_length}s"
     format_size = struct.calcsize(format)
     whisper_info = struct.unpack(format, data[:format_size])
@@ -57,3 +59,11 @@ def deconstruct_whisper_target(data):
     message = whisper_info[4].decode("utf-8")
 
     fixed_print(f"[From {from_user}] : {message}")
+
+
+def deconstruct_join_op(client, data):
+    format = "!hh"
+    format_size = struct.calcsize(format)
+    return_code = struct.unpack(format, data[:format_size])[1]
+
+    fixed_print(get_return_codes()[return_code])

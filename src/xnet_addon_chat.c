@@ -1,17 +1,16 @@
 #include "xnet_addon_chat.h"
 
 chat_main_t chat_base;
-pthread_mutex_t chat_lock;
 
 static int assign_user_to_room(xnet_active_connection_t *client, char *room_name);
+static int remove_user_from_room(xnet_active_connection_t *client);
 
 int xnet_integrate_chat_addon(xnet_box_t *xnet)
 {
     xnet_insert_feature(xnet, CHAT_LOGIN_OP, chat_perform_login);
     xnet_insert_feature(xnet, CHAT_WHISPER_OP, chat_perform_whisper);
     xnet_insert_feature(xnet, CHAT_JOIN_OP, chat_perform_join_room);
-    xnet_insert_feature(xnet, CHAT_DEBUG_OP, chat_perform_debug);
-    pthread_mutex_init(&chat_lock, NULL);
+    xnet_insert_feature(xnet, CHAT_SHOUT_OP, chat_perform_shout);
     return 0;
 }
 
@@ -121,8 +120,6 @@ int chat_perform_whisper(xnet_box_t *xnet, xnet_active_connection_t *client)
 
     /* ----------------------------------------------- */
 
-
-
     /* Send feedback to client. */
 return_packet:
     packets.to_client.opcode_relation = htons(CHAT_WHISPER_OP);
@@ -135,20 +132,46 @@ return_packet:
 
 int chat_perform_join_room(xnet_box_t *xnet, xnet_active_connection_t *client)
 {
-    (void)xnet;
-    (void)client;
-    puts("join room");
-    xnet_login_user(xnet->userbase, (char *)"admin", (char *)"password", client);
-    assign_user_to_room(client, (char *)"The Hub");
-    printf("%s joined room %s\n", client->account->username, "The Hub");
+    int return_code = 0;
+
+    printf("Socket [%d] is performing 'chat_perform_join_room()'\n", client->socket);
+
+    chat_join_room_packet_t packets = {0};
+
+    read(client->socket, &packets.from_client.room_name_length, sizeof(int));
+    packets.from_client.room_name_length = ntohl(packets.from_client.room_name_length);
+
+    read(client->socket, &packets.from_client.room_name, MAX_ROOM_NAME_LEN);
+
+    /* Attempts to remove user from their current room. */
+    int try_remove = remove_user_from_room(client);
+    if (0 != try_remove) {
+        return_code = RC_FAILED_JOIN_ROOM;
+        goto return_packet;
+    }
+
+    int try_join = assign_user_to_room(client, (char *)packets.from_client.room_name);
+    if (0 != try_join) {
+        return_code = RC_FAILED_JOIN_ROOM;
+        goto return_packet;
+    }
+
+    printf("%s got assigned to room %s\n", client->account->username, packets.from_client.room_name);
+
+    /* Send feedback to client. */
+return_packet:
+    packets.to_client.opcode_relation = htons(CHAT_JOIN_OP);
+    packets.to_client.return_code = htons(return_code);
+    send(client->socket, &packets.to_client, sizeof(packets.to_client), 0);
+
+    printf("Socket [%d] finished performing 'chat_perform_join_room()' with code [%d]\n", client->socket, return_code);
     return 0;
 }
 
-int chat_perform_debug(xnet_box_t *xnet, xnet_active_connection_t *client)
+int chat_perform_shout(xnet_box_t *xnet, xnet_active_connection_t *client)
 {
     (void)xnet;
     (void)client;
-    xnet_print_userbase(xnet->userbase);
     return 0;
 }
 
@@ -191,10 +214,43 @@ handle_err:
     return err;
 }
 
-// static int remove_user_from_room(xnet_active_connection_t *client, char *room_name)
-// {
+static int remove_user_from_room(xnet_active_connection_t *client)
+{
+    // remove's user from their current room if possible.
+    int err = 0;
 
-// }
+    /* NULL Check */
+    if (NULL == client) {
+        err = E_GEN_NULL_PTR;
+        goto handle_err;
+    }
+
+    /* Require client to be logged in. */
+    if (false == client->account->is_logged_in) {
+        err = E_GEN_OUT_RANGE;
+        goto handle_err;
+    }
+    
+    int found_rm_index = -1;
+    for (size_t rm_idx = 0; (rm_idx < MAX_ROOM_COUNT && -1 == found_rm_index); rm_idx++) {
+        for (size_t usr_idx = 0; (usr_idx < MAX_USERS_IN_ROOM && -1 == found_rm_index); usr_idx++) {
+            if (client == chat_base.rooms[rm_idx].users[usr_idx]) {
+                // This assignment makes the above conditionals no longer valid, causing the loop to break.
+                found_rm_index = rm_idx;
+                // Removes user from room
+                chat_base.rooms[rm_idx].users[usr_idx] = NULL;
+                printf("%s got removed from room %s\n", client->account->username, chat_base.rooms[rm_idx].name);
+            }
+        }
+    }
+
+    return 0;
+
+    /* Unreachable unless error is triggered. */
+handle_err:
+    g_show_err(err, "remove_user_from_room()");
+    return err;
+}
 
 static int assign_user_to_room(xnet_active_connection_t *client, char *room_name)
 {
@@ -222,6 +278,9 @@ static int assign_user_to_room(xnet_active_connection_t *client, char *room_name
 
     /* Get index of room with match. */
     for (size_t n = 0; n < MAX_ROOM_COUNT; n++) {
+        if (NULL == chat_base.rooms[n].name) {
+            continue;
+        }
         /* Room found if true. */
         if (0 == strncmp(chat_base.rooms[n].name, room_name, MAX_ROOM_NAME_LEN)) {
             room_number = n;
