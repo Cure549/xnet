@@ -104,6 +104,12 @@ int chat_perform_whisper(xnet_box_t *xnet, xnet_active_connection_t *client)
         goto return_packet;
     }
 
+    /* Make sure message is not being sent to self. */
+    if (client->account->username == desired_user->account->username) {
+        return_code = RC_FAILED_WHISPER;
+        goto return_packet;
+    }
+
     /* Create packet details */
     packets.to_target.opcode_relation = htons(CHAT_WHISPER_TARGET);
     strncpy(packets.to_target.from_username, client->account->username, XNET_MAX_USERNAME_LEN);
