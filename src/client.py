@@ -2,7 +2,7 @@ import cmd
 import socket
 import threading
 import array
-from packet_info import WhisperOP, LoginOP, JoinRoomOP
+from packet_info import WhisperOP, LoginOP, JoinRoomOP, ShoutOP
 from client_utils import get_return_codes, unpack_server_response, fixed_print
 
 class Client(cmd.Cmd):
@@ -70,7 +70,14 @@ class Client(cmd.Cmd):
             fixed_print("You must be connected to a server and logged in to perform this action.")
 
     def do_shout(self, message):
-        pass
+        if self.sock and self.is_logged_in and self.is_connected:
+            send_obj = ShoutOP(message).construct()
+            if send_obj is None:
+                fixed_print("Invalid input detected.")
+                return
+            self.sock.sendall(send_obj)
+        else:
+            fixed_print("You must be connected to a server and logged in to perform this action.")
 
     def do_login(self, creds):
         if self.is_logged_in:
@@ -96,23 +103,11 @@ class Client(cmd.Cmd):
             try:
                 message = self.sock.recv(8192)
             except BlockingIOError:
-                # print("blo")
                 continue
             except OSError:
-                # print("os")
                 self.is_connected = False
                 self.is_logged_in = False
                 fixed_print("Connection lost")
-            # if not message:
-            #     continue
-                # print('Connection lost')
-                # self.sock = None
-                # break
-            # if len(message) == 2:
-            #     code = array.array("h", message)
-            #     print(f"{self.codes[code.pop()]}\n{self.prompt}", end="")
-            # else:
-            # print(f'Received: {message}\n{self.prompt}', end="")
             if message:
                 unpack_server_response(self, message)
             else:
@@ -121,6 +116,7 @@ class Client(cmd.Cmd):
                 self.is_connected = False
                 self.is_logged_in = False
                 fixed_print("Session Expired.")
+
 
 if __name__ == '__main__':
     Client().cmdloop()

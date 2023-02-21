@@ -49,6 +49,21 @@ typedef struct chat_data_main {
     chat_room_t rooms[MAX_ROOM_COUNT];
 } chat_main_t ;
 
+struct __attribute__((__packed__)) chat_shout_tc {
+    short opcode_relation;
+    short return_code;
+};
+
+struct __attribute__((__packed__)) chat_shout_fc {
+    int msg_length;
+    char msg[MAX_MESSAGE_LENGTH];
+};
+
+typedef struct chat_shout_packet {
+    struct chat_shout_tc to_client;
+    struct chat_shout_fc from_client;
+} chat_shout_packet_t ;
+
 struct __attribute__((__packed__)) chat_join_room_tc {
     short opcode_relation;
     short return_code;
@@ -132,7 +147,7 @@ int chat_perform_join_room(xnet_box_t *xnet, xnet_active_connection_t *client);
 
 int chat_perform_shout(xnet_box_t *xnet, xnet_active_connection_t *client);
 
-int chat_create_room(const char *room_name);
+int chat_create_room(char *room_name);
 
 #ifdef __cplusplus
 }

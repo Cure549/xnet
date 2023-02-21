@@ -26,7 +26,7 @@ def notify_deconstructor(client, opcode, data):
         WhisperOP.opcode: deconstruct_whisper,
         WhisperOP.im_target: deconstruct_whisper_target,
         JoinRoomOP.opcode: deconstruct_join_op,
-        ShoutOP.opcode: ShoutOP,
+        ShoutOP.opcode: deconstruct_shout_op,
     }
 
     deconstructor_idx = list(features.keys()).index(opcode)
@@ -62,6 +62,13 @@ def deconstruct_whisper_target(client, data):
 
 
 def deconstruct_join_op(client, data):
+    format = "!hh"
+    format_size = struct.calcsize(format)
+    return_code = struct.unpack(format, data[:format_size])[1]
+
+    fixed_print(get_return_codes()[return_code])
+
+def deconstruct_shout_op(client, data):
     format = "!hh"
     format_size = struct.calcsize(format)
     return_code = struct.unpack(format, data[:format_size])[1]
