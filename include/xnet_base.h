@@ -49,11 +49,14 @@ extern "C" {
 
 #define XNET_EPOLL_MAX_EVENTS        10
 #define XNET_MAX_FEATURES            4096
+#define XNET_MAX_CALLBACKS           512
 
 #define XNET_MAX_PACKET_BUF_SZ       8192
 
 #define XNET_THREAD_COUNT            5
 #define XNET_THREAD_MAX_TASKS        256
+
+enum xnet_callbacks { ON_ADDON_LOAD, ON_ADDON_UNLOAD, ON_CLIENT_CONNECT, ON_CLIENT_DISCONNECT };
 
 typedef struct xnet_box {
     struct xnet_general_group *general;
@@ -102,7 +105,10 @@ typedef struct xnet_general_group {
     void (*on_connection_attempt)(xnet_box_t *xnet);
     void (*on_terminate_signal)(xnet_box_t *xnet);
     void (*on_client_send)(xnet_box_t *xnet, xnet_active_connection_t *me);
+    void (*on_session_expire)(xnet_box_t *xnet, xnet_active_connection_t *me);
     int  (*perform[XNET_MAX_FEATURES])(xnet_box_t *xnet, xnet_active_connection_t *client);
+    int  (*on_client_connect[XNET_MAX_CALLBACKS])(xnet_box_t *xnet, xnet_active_connection_t *client);
+    int  (*on_client_disconnect[XNET_MAX_CALLBACKS])(xnet_box_t *xnet, xnet_active_connection_t *client);
 } xnet_general_group_t ;
 
 typedef struct xnet_network_group {

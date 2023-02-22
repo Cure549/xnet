@@ -70,6 +70,8 @@ int xnet_insert_feature(xnet_box_t *xnet, size_t opcode, int (*new_perform)(xnet
 
 int xnet_blacklist_feature(xnet_box_t *xnet, size_t opcode);
 
+int xnet_addon_callback(xnet_box_t *xnet, enum xnet_callbacks callback_event, int (*new_perform)(xnet_box_t *xnet, xnet_active_connection_t *client));
+
 void flush_buffer(int fd);
 
 #ifdef __cplusplus

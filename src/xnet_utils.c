@@ -1,12 +1,9 @@
 #include "xnet_utils.h"
+#include "xnet_threads.h"
 #include <fcntl.h>
 
 /* 
-Any general utilities associated with aiding in server configuration and customization.
-
-// Compares a given session id, to a active user's session id.
 xnet_session_is_valid(size_t session_id, user)
-
 */
 
 /**
@@ -53,6 +50,7 @@ void nfree(void **ptr)
         return;
     }
 
+	/* Save NULL after function is popped off stack. */
 	free(*ptr);
 	*ptr = NULL;
 }
@@ -195,6 +193,19 @@ int xnet_close_connection(xnet_box_t *xnet, xnet_active_connection_t *client)
 		goto handle_err;
 	}
 
+	/* Perform all callbacks that are set to occur on the successful connection of a client. */
+    for (size_t n = 0; n < XNET_MAX_CALLBACKS; n++) {
+        /* Due to callbacks being added in a predicted fashion, once a NULL is hit, an assumption that 
+        there are no callbacks left is safe to take.
+        */
+        if (NULL == xnet->general->on_client_disconnect[n]) {
+            break;
+        }
+		
+		/* Notify callback */
+		xnet->general->on_client_disconnect[n](xnet, client);
+    }
+
 	close(client->socket);
 	close(client->session.timer_fd);
 	xnet_logout_user(client);
@@ -205,6 +216,7 @@ int xnet_close_connection(xnet_box_t *xnet, xnet_active_connection_t *client)
 	client->is_active = false;
 	client->session.id = 0;
 	xnet->connections->connection_count--;
+
 
 	return 0;
 
@@ -365,6 +377,52 @@ int xnet_blacklist_feature(xnet_box_t *xnet, size_t opcode)
 
 	/* Remove support for feature. */
 	xnet->general->perform[opcode] = NULL;
+	return 0;
+
+	/* Unreachable unless error is triggered. */
+handle_err:
+    g_show_err(err, "xnet_blacklist_feature()");
+    return err;
+}
+
+int xnet_addon_callback(xnet_box_t *xnet, enum xnet_callbacks callback_event, int (*new_perform)(xnet_box_t *xnet, xnet_active_connection_t *client))
+{
+	int err = 0;
+
+	if (NULL == new_perform) {
+		err = E_GEN_NULL_PTR;
+		goto handle_err;
+	}
+
+	switch (callback_event)
+	{
+	case ON_ADDON_LOAD:
+		break;
+	case ON_ADDON_UNLOAD:
+		break;
+	case ON_CLIENT_CONNECT:
+		/* Add callback to list of actions to perform when a client connects. */
+		for (size_t n = 0; n < XNET_MAX_CALLBACKS; n++) {
+			if (NULL == xnet->general->on_client_connect[n]) {
+				xnet->general->on_client_connect[n] = new_perform;
+				break;
+			}
+		}
+		break;
+	case ON_CLIENT_DISCONNECT:
+		/* Add callback to list of actions to perform when a client connects. */
+		for (size_t n = 0; n < XNET_MAX_CALLBACKS; n++) {
+			if (NULL == xnet->general->on_client_disconnect[n]) {
+				xnet->general->on_client_disconnect[n] = new_perform;
+				break;
+			}
+		}
+		break;
+	
+	default:
+		break;
+	}
+
 	return 0;
 
 	/* Unreachable unless error is triggered. */

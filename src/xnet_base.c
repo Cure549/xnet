@@ -32,6 +32,8 @@ static void xnet_default_on_terminate_signal(xnet_box_t *xnet);
 
 static void xnet_default_on_client_send(xnet_box_t *xnet, xnet_active_connection_t *me);
 
+static void xnet_default_on_session_expire(xnet_box_t *xnet, xnet_active_connection_t *me);
+
 static int xnet_signal_disposition(xnet_box_t *xnet);
 
 xnet_box_t *xnet_create(const char *ip, size_t port, size_t backlog, size_t timeout)
@@ -161,6 +163,9 @@ int xnet_start(xnet_box_t *xnet)
     if (NULL == xnet->general->on_client_send) {
         xnet->general->on_client_send = xnet_default_on_client_send;
     }
+    if (NULL == xnet->general->on_session_expire) {
+        xnet->general->on_session_expire = xnet_default_on_session_expire;
+    }
 
     /* XNET CONNECTION LOOP */
     xnet_listen_loop(xnet);
@@ -251,16 +256,8 @@ static void xnet_listen_loop(xnet_box_t *xnet)
 
             /* If event triggers on any other fd within the event array, it is a session's fd. */
             } else {
-                // Create an overridable event for session expiring.
-                // Example: xnet->general->on_session_expire(xnet);
                 xnet_active_connection_t *expired_client = xnet_get_conn_by_session(xnet, current_event);
-
-                /* Ensure the client is not working before closing a connection. */
-                if (false == expired_client->is_working) {
-                    flush_buffer(current_event);
-                    xnet_close_connection(xnet, expired_client);
-                    xnet_debug_connections(xnet);
-                }
+                xnet->general->on_session_expire(xnet, expired_client);
             }
         }
     }
@@ -486,6 +483,31 @@ static void xnet_default_on_connection_attempt(xnet_box_t *xnet)
         return;
     }
 
+    /* Perform all callbacks that are set to occur on the successful connection of a client. */
+    for (size_t n = 0; n < XNET_MAX_CALLBACKS; n++) {
+        /* Due to callbacks being added in a predicted fashion, once a NULL is hit, an assumption that 
+        there are no callbacks left is safe to take.
+        */
+        if (NULL == xnet->general->on_client_connect[n]) {
+            break;
+        }
+
+        /* Allocate new task. */
+        xnet_task_t *new_task = calloc(1, sizeof(xnet_task_t));
+        if (NULL == new_task) {
+            fprintf(stderr, "Server is out of memory. Breaking out.\n");
+            xnet_shutdown(xnet);
+        }
+
+        /* Configure new task and submit for work. */
+        new_task->task_function = xnet->general->on_client_connect[n];
+        new_task->xnet = xnet;
+        new_task->me = new_client;
+        pthread_mutex_init(&new_task->task_lock, NULL);
+
+        xnet_work_push(xnet, new_task);
+    }
+
     xnet_debug_connections(xnet);
 }
 
@@ -540,5 +562,35 @@ static void xnet_default_on_client_send(xnet_box_t *xnet, xnet_active_connection
         flush_buffer(me->client_event.data.fd);
     }
     
+    return;
+}
+
+static void xnet_default_on_session_expire(xnet_box_t *xnet, xnet_active_connection_t *me)
+{
+    int err = 0;
+
+    /* NULL Check */
+    if (NULL == xnet) {
+        err = E_GEN_NULL_PTR;
+        goto handle_err;
+    }
+
+    if (NULL == me) {
+        err = E_GEN_NULL_PTR;
+        goto handle_err;
+    }
+
+    /* Ensure the client is not working before closing a connection. */
+    if (false == me->is_working) {
+        flush_buffer(me->socket);
+        xnet_close_connection(xnet, me);
+        xnet_debug_connections(xnet);
+    }
+
+    return;
+
+    /* Unreachable unless error is triggered. */
+handle_err:
+    g_show_err(err, "xnet_default_on_session_expire()");
     return;
 }

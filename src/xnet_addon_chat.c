@@ -9,12 +9,31 @@ static int find_room_with_name(char *room_name);
 static int check_for_available_slot(int room_number);
 static int get_my_room_number(xnet_active_connection_t *client);
 
+int test_connect(xnet_box_t *xnet, xnet_active_connection_t *client)
+{
+    (void)xnet;
+    (void)client;
+    puts("CONNECT MSGGGG!!!!");
+    return 0;
+}
+
+int test_disconnect(xnet_box_t *xnet, xnet_active_connection_t *client)
+{
+    (void)xnet;
+    // (void)client;
+    puts("DISCONNECT MSGGGG!!!!");
+    remove_user_from_room(client);
+    return 0;
+}
+
 int xnet_integrate_chat_addon(xnet_box_t *xnet)
 {
     xnet_insert_feature(xnet, CHAT_LOGIN_OP, chat_perform_login);
     xnet_insert_feature(xnet, CHAT_WHISPER_OP, chat_perform_whisper);
     xnet_insert_feature(xnet, CHAT_JOIN_OP, chat_perform_join_room);
     xnet_insert_feature(xnet, CHAT_SHOUT_OP, chat_perform_shout);
+    xnet_addon_callback(xnet, ON_CLIENT_CONNECT, test_connect);
+    xnet_addon_callback(xnet, ON_CLIENT_DISCONNECT, test_disconnect);
     return 0;
 }
 
@@ -216,10 +235,16 @@ int chat_perform_shout(xnet_box_t *xnet, xnet_active_connection_t *client)
 
     chat_shout_packet_t packets = {0};
 
+    // parse_packet(
+    //     .in = client->socket;
+    //     .out = &packets;
+    //     .formula = ""
+    // );
+
     read(client->socket, &packets.from_client.msg_length, sizeof(int));
     packets.from_client.msg_length = ntohl(packets.from_client.msg_length);
 
-    read(client->socket, &packets.from_client.msg, MAX_MESSAGE_LENGTH);
+    read(client->socket, &packets.from_client.msg, packets.from_client.msg_length);
 
     int room_number = get_my_room_number(client);
     if (-1 == room_number) {
@@ -232,7 +257,7 @@ int chat_perform_shout(xnet_box_t *xnet, xnet_active_connection_t *client)
     dupe_whisper.to_target.opcode_relation = htons(CHAT_WHISPER_TARGET);
     strncpy(dupe_whisper.to_target.from_username, client->account->username, XNET_MAX_USERNAME_LEN);
     dupe_whisper.to_target.from_username_length = htonl(strnlen(dupe_whisper.to_target.from_username, XNET_MAX_USERNAME_LEN));
-    strncpy(dupe_whisper.to_target.msg, packets.from_client.msg, MAX_MESSAGE_LENGTH);
+    strncpy(dupe_whisper.to_target.msg, packets.from_client.msg, packets.from_client.msg_length);
     dupe_whisper.to_target.msg_length = htonl(packets.from_client.msg_length);
 
     /* Send message packet to every user in room. */
@@ -242,7 +267,7 @@ int chat_perform_shout(xnet_box_t *xnet, xnet_active_connection_t *client)
         if (client == current_user) {
             continue;
         }
-        
+
         /* Shout at everyone else!! */
         if (NULL != current_user) {
             send(current_user->socket, &dupe_whisper.to_target, sizeof(dupe_whisper.to_target), 0);
