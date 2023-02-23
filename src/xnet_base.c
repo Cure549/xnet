@@ -452,18 +452,19 @@ handle_err:
 
 static void xnet_default_on_connection_attempt(xnet_box_t *xnet)
 {
-    /* Don't accept connections, if client count is maxxed. */
-    /* Needs to be refactored. */
-    if (xnet->general->max_connections <= xnet->connections->connection_count) {
-        /* Retry */
-        return;
-    }
-    
     /* Attempt to accept connection. */
     puts("Connection attempt being made...");
     int client_socket = accept(xnet->network->xnet_socket, NULL, NULL);
     if (-1 == client_socket) {
         fprintf(stderr, "Failed to accept client connection.\n");
+        return;
+    }
+
+    /* Don't accept connections, if client count is maxxed. */
+    /* Needs to be refactored. */
+    if (xnet->general->max_connections <= xnet->connections->connection_count) {
+        fprintf(stderr, "Client count cap reached. Denying inbound connection.\n");
+        close(client_socket);
         return;
     }
     

@@ -35,11 +35,11 @@ extern "C" {
 #include "gerr.h"
 
 #define XNET_IP_DEFAULT              "127.0.0.1"
-#define XNET_PORT_DEFAULT            40777
+#define XNET_PORT_DEFAULT            40001
 #define XNET_PORT_MIN                1030
 #define XNET_PORT_MAX                65535
 
-#define XNET_MAX_CONNECTIONS_DEFAULT 5
+#define XNET_MAX_CONNECTIONS_DEFAULT 10
 
 #define XNET_BACKLOG_DEFAULT         128
 #define XNET_BACKLOG_MAX             128
@@ -47,14 +47,14 @@ extern "C" {
 #define XNET_TIMEOUT_DEFAULT         3600 // In seconds
 #define XNET_TIMEOUT_MAX             7200 // In seconds
 
-#define XNET_EPOLL_MAX_EVENTS        10
+#define XNET_EPOLL_MAX_EVENTS        10   // Number of max events that epoll will yield to in epoll_wait() 
 #define XNET_MAX_FEATURES            4096
 #define XNET_MAX_CALLBACKS           512
 
 #define XNET_MAX_PACKET_BUF_SZ       8192
 
-#define XNET_THREAD_COUNT            5
-#define XNET_THREAD_MAX_TASKS        256
+#define XNET_THREAD_COUNT            10  // Number of tasks that can run concurrently.
+#define XNET_THREAD_MAX_TASKS        256 // Number of tasks that can be stored in a queue at once.
 
 enum xnet_callbacks { ON_ADDON_LOAD, ON_ADDON_UNLOAD, ON_CLIENT_CONNECT, ON_CLIENT_DISCONNECT };
 
