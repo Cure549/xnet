@@ -20,8 +20,6 @@ int test_connect(xnet_box_t *xnet, xnet_active_connection_t *client)
 int test_disconnect(xnet_box_t *xnet, xnet_active_connection_t *client)
 {
     (void)xnet;
-    // (void)client;
-    puts("DISCONNECT MSGGGG!!!!");
     remove_user_from_room(client);
     return 0;
 }
@@ -454,11 +452,15 @@ handle_err:
 
 static int remove_user_from_room(xnet_active_connection_t *client)
 {
-    // remove's user from their current room if possible.
     int err = 0;
 
     /* NULL Check */
     if (NULL == client) {
+        err = E_GEN_NULL_PTR;
+        goto handle_err;
+    }
+
+    if (NULL == client->account) {
         err = E_GEN_NULL_PTR;
         goto handle_err;
     }

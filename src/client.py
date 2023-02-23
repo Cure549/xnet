@@ -1,20 +1,33 @@
 import cmd
+import sys
 import socket
 import threading
 import array
 from packet_info import WhisperOP, LoginOP, JoinRoomOP, ShoutOP
 from client_utils import get_return_codes, unpack_server_response, fixed_print
 
+
+class InputWrapper:
+    def __init__(self, file_desc):
+        self.file_desc = file_desc
+
+    def readline(self, *args):
+        try:
+            raw = self.file_desc.readline(*args)
+            return f"{raw}\n"
+        except KeyboardInterrupt:
+            return "\n"
+
 class Client(cmd.Cmd):
     def __init__(self):
-        super().__init__()
+        super().__init__(stdin=InputWrapper(sys.stdin))
         self.prompt = "$ "
         self.sock = None
         self.is_connected = False
         self.is_logged_in = False
         self.recv_thread = None
         self.codes = get_return_codes()
-        self.use_rawinput = True
+        self.use_rawinput = False
 
     def emptyline(self):
         pass
@@ -39,14 +52,17 @@ class Client(cmd.Cmd):
             fixed_print(f'Failed to connect to {host}:{port}: {e}')
 
     def do_quit(self, _):
-        if self.is_connected:
-            self.sock.close()
-            self.sock = None
-            fixed_print('Disconnected from server')
-            self.recv_thread.join()
-            return True
-        else:
-            return True
+            try:
+                self.sock.close()
+                self.sock = None 
+            finally:
+                try:
+                    self.recv_thread.join()
+                except AttributeError:
+                    fixed_print("Closing client. No connection to server made.")
+                    return True
+                fixed_print("Closing connection to server.")
+                return True
         
     def do_whisper(self, args):
         user, msg = args.split(" ", 1)
@@ -111,11 +127,13 @@ class Client(cmd.Cmd):
             if message:
                 unpack_server_response(self, message)
             else:
-                self.sock.close()
-                self.sock = None
-                self.is_connected = False
-                self.is_logged_in = False
-                fixed_print("Session Expired.")
+                try:
+                    self.sock.close()
+                    self.sock = None
+                finally:
+                    self.is_connected = False
+                    self.is_logged_in = False
+                    fixed_print("Connection lost")
 
 
 if __name__ == '__main__':
