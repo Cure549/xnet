@@ -16,7 +16,7 @@ class InputWrapper:
             raw = self.file_desc.readline(*args)
             return f"{raw}\n"
         except KeyboardInterrupt:
-            return "\n"
+            return " "
 
 class Client(cmd.Cmd):
     def __init__(self):
@@ -36,9 +36,13 @@ class Client(cmd.Cmd):
         if self.is_connected:
             fixed_print("Already connected.")
             return False
-
-        host, port = args.split()
-        port = int(port)
+        
+        try:
+            host, port = args.split()
+            port = int(port)
+        except ValueError:
+            print("Usage Message: connect <hostname> <port>")
+            return
 
         try:
             self.sock = socket.socket(socket.AF_INET, socket.SOCK_STREAM)
@@ -65,7 +69,11 @@ class Client(cmd.Cmd):
                 return True
         
     def do_whisper(self, args):
-        user, msg = args.split(" ", 1)
+        try:
+            user, msg = args.split(" ", 1)
+        except ValueError:
+            print("Usage Message: whisper <username> <message>")
+            return
         if self.sock and self.is_logged_in and self.is_connected:
             send_obj = WhisperOP(user, msg).construct()
             if send_obj is None:
@@ -100,7 +108,12 @@ class Client(cmd.Cmd):
             fixed_print("Already logged in.")
             return False
 
-        username, password = creds.split()
+        try:
+            username, password = creds.split()
+        except ValueError:
+            print("Usage Message: login <username> <password>")
+            return
+        
         if self.sock:
             send_obj = LoginOP(username, password).construct()
             if send_obj is None:

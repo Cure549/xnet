@@ -418,7 +418,6 @@ int xnet_addon_callback(xnet_box_t *xnet, enum xnet_callbacks callback_event, in
 			}
 		}
 		break;
-	
 	default:
 		break;
 	}

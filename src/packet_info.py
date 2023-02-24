@@ -10,6 +10,8 @@ class BasePacket(ABC):
 
 class LoginOP(BasePacket):
     opcode = 200
+    max_user_length = 32
+    max_pass_length = 32
 
     def __init__(self, username, password):
         self.username = username
@@ -18,6 +20,11 @@ class LoginOP(BasePacket):
         self.password_len = len(self.password)
 
     def construct(self):
+        if self.username_len > LoginOP.max_user_length:
+            return
+        if self.password_len > LoginOP.max_pass_length:
+            return
+
         format = f'!Hi{self.username_len}si{self.password_len}s'
         packet = struct.pack(format, LoginOP.opcode, self.username_len, self.username.encode('utf-8'), self.password_len, self.password.encode('utf-8'))
         return packet
